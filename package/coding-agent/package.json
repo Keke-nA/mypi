@@ -1,0 +1,31 @@
+{
+  "name": "@mypi/coding-agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "mypi": "./dist/cli/main.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@mypi/ai": "0.0.0",
+    "@mypi/agent": "0.0.0",
+    "@mariozechner/pi-tui": "0.61.1",
+    "chalk": "^5.5.0"
+  },
+  "scripts": {
+    "build": "npm run build --workspace @mypi/ai && npm run build --workspace @mypi/agent && npm run build --workspace @mariozechner/pi-tui && tsc -p tsconfig.build.json",
+    "typecheck": "npm run build --workspace @mypi/ai && npm run build --workspace @mypi/agent && npm run build --workspace @mariozechner/pi-tui && tsc -p tsconfig.json --noEmit",
+    "test": "npm run build --workspace @mypi/ai && npm run build --workspace @mypi/agent && npm run build --workspace @mariozechner/pi-tui && vitest run --root ../.. package/coding-agent/test",
+    "cli": "npm run build && node dist/cli/main.js",
+    "tui": "npm run build && node dist/cli/main.js --tui",
+    "smoke:openai": "npm run build && node scripts/openai-coding-agent-smoke.mjs"
+  }
+}

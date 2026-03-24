@@ -1,5 +1,10 @@
 # Coding-Agent 层细化计划
 
+补充说明：
+
+- `session` 子系统已经单独拆成专题文档，见 `docs/plan/session/README.md`
+- 本文档继续保留 `Coding-Agent` 总装层定位，不再展开 session 的所有细节算法
+
 ## 1. 目标
 
 Coding-Agent 层的目标是组合 `AI`、`Agent`、`TUI` 三层能力，并加入 session tree、工作区工具和上下文组装逻辑，形成一个真正可用的 coding-agent CLI 雏形。

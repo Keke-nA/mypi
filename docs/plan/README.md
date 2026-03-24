@@ -29,7 +29,10 @@
 4. [Agent Turn Loop 设计稿](./agent-loop.md)
 5. [TUI 层细化计划](./tui.md)
 6. [Coding-Agent 层细化计划](./coding-agent.md)
-7. [测试配置](./test-config.md)
+7. [Session 子系统计划](./session/README.md)
+8. [Session 实现计划](./session/implementation.md)
+9. [Session 测试计划](./session/testing.md)
+10. [测试配置](./test-config.md)
 
 推荐实现顺序：
 
@@ -47,7 +50,10 @@
 - [Agent Turn Loop 设计稿](./agent-loop.md)：给出当前 `MVP` `Agent` runtime 的状态机、闭环路径、事件顺序和停止语义。
 - [TUI 层细化计划](./tui.md)：依赖 Agent / Coding-Agent 发出的标准化事件，不依赖具体模型厂商。
 - [Coding-Agent 层细化计划](./coding-agent.md)：组合前三层，并负责 session tree、工具实现、上下文组装和 CLI 语义。
-- [测试配置](./test-config.md)：记录当前可直接用于后续联调和验收的 provider 测试入口与凭证。
+- [Session 子系统计划](./session/README.md)：把 `Coding-Agent` 中最复杂的 session 子系统单独拆开，覆盖存储、tree、context rebuild、`/tree`、`/fork`、compaction 和 runtime 桥接。
+- [Session 实现计划](./session/implementation.md)：按未来 `package/coding-agent` 的文件布局拆分落地顺序、模块职责和里程碑。
+- [Session 测试计划](./session/testing.md)：定义 session 的单测、集成测试、交互 smoke 与“像 pi 一样可用”的验收标准。
+- [测试配置](./test-config.md)：记录当前可直接用于后续联调和验收的 provider 测试入口与凭证。 
 
 ## 5. 文档用途说明
 
@@ -61,14 +67,16 @@
   用于约束终端展示和输入边界，保证界面层不反向主导业务协议。
 - [Coding-Agent 层细化计划](./coding-agent.md)
   用于约束 session tree、工作区工具、分支恢复和终端产品形态，是最接近最终 CLI 形态的装配层文档。
+- [Session 子系统计划](./session/README.md)
+  用于把 session 从 `Coding-Agent` 总装层中拆出来，单独定义存储、tree、context rebuild、compaction、`/tree`、`/fork`、resume/new 等完整需求。
 - [测试配置](./test-config.md)
   用于固定当前后续测试默认使用的 provider 地址、API Key 和环境变量约定。
 
 ## 6. 本轮不做的事情
 
-- 不创建 `package/ai`、`package/agent`、`package/tui`、`package/coding-agent` 的源码目录。
-- 不实现任何 TypeScript 接口、类型、测试或 CLI。
-- 不绑定具体 TUI 框架。
+- 本轮文档工作不创建或修改未来 `package/coding-agent` 的源码目录。
+- 本轮文档工作不实现任何新的 TypeScript 接口、类型、测试或 CLI。
+- 不替换当前已选定的 `@mariozechner/pi-tui`。
 - 不额外拆出独立 `tools` 包。
 
 ## 7. Git 提交约定
