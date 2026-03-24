@@ -1,0 +1,19 @@
+{
+  "name": "mypi",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "package/*"
+  ],
+  "scripts": {
+    "test:core": "npm run build --workspace @mypi/ai && npm run build --workspace @mypi/agent && vitest run",
+    "test": "npm run test:core && npm run build --workspace @mariozechner/pi-tui && npm run test --workspace @mariozechner/pi-tui",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit && npm run typecheck --workspace @mariozechner/pi-tui"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

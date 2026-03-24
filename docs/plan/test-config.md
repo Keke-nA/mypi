@@ -10,14 +10,34 @@
 
 ### OpenAI 中转
 
-- Base URL: `https://aixj.vip/v1`
-- API Key: `sk-891bb084b4992a59f4b4dfe4dd902c9d3da0006d28e5c1a1e2a9ee7ff7b7b98a`
+- Base URL: `https://aixj.vip/v1 如果不通就 https://aixj.vip`
+- API Key: `sk-426b195e07ceeda2164b5bc151b6a314c84509272375039c44af3456457781dd`
 
 建议统一按下面的环境变量命名使用：
 
 ```bash
 OPENAI_BASE_URL=https://aixj.vip/v1
-OPENAI_API_KEY=sk-891bb084b4992a59f4b4dfe4dd902c9d3da0006d28e5c1a1e2a9ee7ff7b7b98a
+OPENAI_API_KEY=sk-426b195e07ceeda2164b5bc151b6a314c84509272375039c44af3456457781dd
+```
+
+当前建议默认联调模型：
+
+```bash
+OPENAI_MODEL=gpt-5.4
+```
+
+可直接使用现有 smoke 脚本进行手工联调：
+
+```bash
+printf '%s\n' '{"urls":["https://aixj.vip/v1"],"apiKey":"'"$OPENAI_API_KEY"'","model":"gpt-5.4"}' \
+  | npm run smoke:openai --workspace @mypi/ai
+```
+
+如需直接验证 `agent + ai` 的完整链路，可使用：
+
+```bash
+printf '%s\n' '{"urls":["https://aixj.vip/v1"],"apiKey":"'"$OPENAI_API_KEY"'","model":"gpt-5.4","retries":5,"delayMs":1000}' \
+  | npm run smoke:openai --workspace @mypi/agent
 ```
 
 ## 3. 当前缺失配置

@@ -26,9 +26,10 @@
 1. [项目总纲](../goal.md)
 2. [AI 层细化计划](./ai.md)
 3. [Agent 层细化计划](./agent.md)
-4. [TUI 层细化计划](./tui.md)
-5. [Coding-Agent 层细化计划](./coding-agent.md)
-6. [测试配置](./test-config.md)
+4. [Agent Turn Loop 设计稿](./agent-loop.md)
+5. [TUI 层细化计划](./tui.md)
+6. [Coding-Agent 层细化计划](./coding-agent.md)
+7. [测试配置](./test-config.md)
 
 推荐实现顺序：
 
@@ -43,6 +44,7 @@
 
 - [AI 层细化计划](./ai.md)：定义统一模型调用协议，是其它三层的基础。
 - [Agent 层细化计划](./agent.md)：依赖 AI 层协议，定义状态机、turn loop 和工具编排。
+- [Agent Turn Loop 设计稿](./agent-loop.md)：给出当前 `MVP` `Agent` runtime 的状态机、闭环路径、事件顺序和停止语义。
 - [TUI 层细化计划](./tui.md)：依赖 Agent / Coding-Agent 发出的标准化事件，不依赖具体模型厂商。
 - [Coding-Agent 层细化计划](./coding-agent.md)：组合前三层，并负责 session tree、工具实现、上下文组装和 CLI 语义。
 - [测试配置](./test-config.md)：记录当前可直接用于后续联调和验收的 provider 测试入口与凭证。
@@ -53,6 +55,8 @@
   用于约束统一协议、provider adapter、模型目录和认证策略，避免不同厂商接入方式向上泄漏。
 - [Agent 层细化计划](./agent.md)
   用于约束状态机、turn loop、工具调用回路和事件生命周期，避免编排逻辑散落到其它层。
+- [Agent Turn Loop 设计稿](./agent-loop.md)
+  用于沉淀当前 `MVP` 已定的运行时设计，方便实现对照、评审和后续调整。
 - [TUI 层细化计划](./tui.md)
   用于约束终端展示和输入边界，保证界面层不反向主导业务协议。
 - [Coding-Agent 层细化计划](./coding-agent.md)

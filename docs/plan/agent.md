@@ -1,5 +1,10 @@
 # Agent 层细化计划
 
+补充说明：
+
+- 当前 `MVP` 的已定 `turn loop` 设计见 [Agent Turn Loop 设计稿](./agent-loop.md)
+- 本文档继续保留“计划 / 边界 / 验收”定位
+
 ## 1. 目标
 
 Agent 层的目标是把一次任务执行组织成状态化的 `turn loop`，统一控制何时继续推理、何时调用工具、何时结束当前 turn。

@@ -1,0 +1,27 @@
+{
+  "name": "@mypi/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "smoke:openai": "node scripts/openai-smoke.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && vitest run --root ../.. package/ai/test"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
+    "openai": "^6.26.0",
+    "partial-json": "^0.1.7"
+  }
+}
