@@ -114,6 +114,7 @@ describe("agent config", () => {
 		expect(loaded.settings.modelId).toBe("gpt-5.4");
 		expect(loaded.settings.baseUrl).toBe("https://explicit.example/v1");
 		expect(loaded.settings.uiMode).toBe("tui");
+		expect(loaded.settings.continueRecent).toBe(false);
 		expect(loaded.settings.activeTools).toEqual(["read"]);
 		expect(loaded.settings.sessionDir).toBe(path.resolve(cwd, "sessions-cache"));
 		expect(loaded.settings.compaction.thresholdPercent).toBe(85);

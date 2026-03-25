@@ -294,7 +294,7 @@ export async function loadAgentConfig(options: LoadAgentConfigOptions = {}): Pro
 	let settings: ResolvedAgentSettings = {
 		modelId: DEFAULT_MODEL,
 		thinkingLevel: "off",
-		continueRecent: true,
+		continueRecent: false,
 		uiMode: "auto",
 		activeTools: DEFAULT_TOOLS.slice(),
 		compaction: resolveAutoCompactionSettings(undefined),
@@ -349,7 +349,7 @@ export function formatLoadedConfig(config: LoadedAgentConfig): string {
 		`thinkingLevel: ${config.settings.thinkingLevel ?? "off"}`,
 		`uiMode: ${config.settings.uiMode ?? "auto"}`,
 		`sessionDir: ${config.settings.sessionDir ?? "(default)"}`,
-		`continueRecent: ${config.settings.continueRecent === false ? "false" : "true"}`,
+		`continueRecent: ${config.settings.continueRecent ? "true" : "false"}`,
 		`activeTools: ${(config.settings.activeTools ?? DEFAULT_TOOLS).join(", ") || "(none)"}`,
 		`compaction.enabled: ${config.settings.compaction.enabled ? "true" : "false"}`,
 		`compaction.thresholdPercent: ${config.settings.compaction.thresholdPercent}`,

@@ -38,19 +38,29 @@
 
 ### 4. Overlay 行为
 
-当前 overlay 分两类：
+当前 overlay 分三类：
 
-- 继续用 `SelectList` 实现 `/sessions` / `/resume` / `/model` / `/thinking`
+- 继续用 `SelectList` 实现 `/model` / `/thinking`
 - 为 `/tree` 单独实现了专门的 `session-tree-overlay`
+- 为 `/sessions` / `/resume` / 启动时 `--resume` / `/delete` 单独实现了 `session-selector-overlay`
 
 新的 `/tree` overlay 已支持：
 
 - 全屏风格的 tree panel
 - `Type to search` 搜索过滤
-- 用 `├─` / `└─` / `│` 显示 branch 结构
+- 只在真正 branch point 处显示分叉
 - 高亮当前 leaf
 - `←/→` 折叠和展开 subtree
 - `tab` 切换“直接导航 / 导航并 summary”模式
+
+新的 session selector overlay 已支持：
+
+- `project` / `all` 两个 scope tab
+- `tab` 在当前项目会话和全部会话之间切换
+- 启动时 `--resume` 直接复用同一套 selector 交互
+- 搜索过滤
+- `delete` 删除选中的 session
+- 当前 session 高亮标记
 
 ### 5. Agent runtime 联动
 

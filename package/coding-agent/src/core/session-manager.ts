@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Message } from "@mypi/ai";
 import type {
@@ -107,6 +107,26 @@ async function collectSessionFiles(rootDir: string): Promise<string[]> {
 		return files;
 	} catch {
 		return [];
+	}
+}
+
+async function removeEmptyParentDirs(startDir: string, stopDir: string): Promise<void> {
+	let currentDir = startDir;
+	const normalizedStop = path.resolve(stopDir);
+	while (currentDir.startsWith(normalizedStop)) {
+		if (path.resolve(currentDir) === normalizedStop) {
+			break;
+		}
+		try {
+			await rmdir(currentDir);
+		} catch {
+			break;
+		}
+		const parentDir = path.dirname(currentDir);
+		if (parentDir === currentDir) {
+			break;
+		}
+		currentDir = parentDir;
 	}
 }
 
@@ -233,6 +253,13 @@ export class SessionManager {
 		return infos
 			.filter((item): item is SessionInfo => item !== null)
 			.sort((left, right) => Date.parse(right.modified) - Date.parse(left.modified));
+	}
+
+	static async deleteFile(filePath: string, options: { sessionDir?: string } = {}): Promise<void> {
+		const resolvedFilePath = path.resolve(filePath);
+		const sessionDir = path.resolve(options.sessionDir ?? defaultSessionDir());
+		await rm(resolvedFilePath);
+		await removeEmptyParentDirs(path.dirname(resolvedFilePath), sessionDir);
 	}
 
 	static async forkFrom(sourcePath: string, options: SessionForkOptions = {}): Promise<SessionManager> {

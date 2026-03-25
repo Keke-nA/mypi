@@ -14,4 +14,5 @@ export * from "./config/config.js";
 export * from "./tools/workspace-tools.js";
 export * from "./ui/theme.js";
 export * from "./ui/select-overlay.js";
+export * from "./ui/session-selector-overlay.js";
 export * from "./ui/interactive-app.js";

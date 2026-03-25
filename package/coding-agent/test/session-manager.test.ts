@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -77,6 +77,17 @@ describe("SessionManager", () => {
 		const forkedBranchIds = forked.getBranch().map((entry) => entry.id);
 		expect(forkedBranchIds.slice(-2)).toEqual([userEntry.id, altAssistant.id]);
 		expect(forkedBranchIds).toContain(userEntry.id);
+	});
+
+	it("deletes persisted session files", async () => {
+		const sessionDir = await createTempDir();
+		const cwd = path.join(sessionDir, "project-delete");
+		const manager = await SessionManager.create({ cwd, sessionDir });
+		const filePath = manager.getSessionFile();
+		expect(filePath).toBeTruthy();
+		await SessionManager.deleteFile(filePath!, { sessionDir });
+		await expect(access(filePath!)).rejects.toBeTruthy();
+		expect(await SessionManager.list(cwd, sessionDir)).toHaveLength(0);
 	});
 
 	it("supports summary branching and reset leaf semantics", async () => {

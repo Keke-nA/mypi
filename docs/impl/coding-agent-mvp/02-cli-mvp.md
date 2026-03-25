@@ -20,10 +20,11 @@ CLI 支持：
 - `--prompt`
 - `--session-dir`
 - `--session-file`
+- `--resume`
+- `--resume-latest`
 - `--config`
 - `--preset`
 - `--print-config`
-- `--new`
 - `--in-memory`
 
 ### 2. Session 命令
@@ -33,8 +34,9 @@ CLI 支持：
 - `/config`
 - `/session`
 - `/new`
-- `/sessions`
-- `/resume`
+- `/sessions [--all]`
+- `/resume [--all] [index|path]`
+- `/delete [--all] [index|path|current]`
 - `/tree`
 - `/fork`
 - `/compact`
@@ -70,4 +72,9 @@ CLI 支持：
 - 真实对话可跑
 - 真实工具可跑
 - 真实 session 可持久化
+- 默认启动进入新 session
+- `--resume` / `--resume-latest` / `--session-file` 三种恢复入口可区分
+- `--resume` 启动时会先进入 selector，不会先落一个空白新 session
+- `/sessions` / `/resume` / `/delete` 在 plain CLI 里也支持 `--all`
+- `/delete` 和 selector 内删除能力可用
 - 真实 branch / fork / compact 可跑

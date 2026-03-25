@@ -64,7 +64,7 @@
     "uiMode": "tui",
     "tools": ["read", "write", "edit", "bash"],
     "sessionDir": "~/.mypi/agent/sessions",
-    "continueRecent": true,
+    "continueRecent": false,
     "systemPromptAppend": "Extra instructions",
     "compaction": {
       "enabled": true,
@@ -135,6 +135,16 @@
 - `--config <path>`
 - `--preset <name>`
 - `--print-config`
+- `--resume`
+- `--resume-latest`
+
+当前启动语义：
+
+- 不带 resume 参数时默认新建 session
+- `continueRecent` 默认值已调整为 `false`
+- `--resume` 进入当前项目 / 全部会话两级 scope selector
+- `--resume-latest` 直接恢复最近 session
+- `--session-file <path>` 打开指定 session 文件
 
 ### Runtime 命令
 

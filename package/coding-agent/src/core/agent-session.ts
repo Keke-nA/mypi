@@ -78,6 +78,14 @@ export class AgentSession {
 		return this.runtime.switchSession(session);
 	}
 
+	listAllSessions() {
+		return this.runtime.listAllSessions();
+	}
+
+	deleteSession(sessionPath?: string) {
+		return this.runtime.deleteSession(sessionPath);
+	}
+
 	fork(options?: SessionForkOptions) {
 		return this.runtime.fork(options);
 	}

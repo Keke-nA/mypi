@@ -13,6 +13,10 @@
 - session context
 - session compaction
 - session runtime
+- session deletion
+- session tree overlay rendering helpers
+- CLI startup flags / conflict handling
+- default startup mode = new session
 - context usage calculation
 - threshold auto-compaction
 - overflow recovery compact
@@ -37,6 +41,7 @@ smoke 已验证：
 - branch summary
 - compaction
 - auto-compaction 接入后主链路未回归损坏
+- 启动语义和 selector 重构后主链路未回归损坏
 
 ## CLI one-shot
 

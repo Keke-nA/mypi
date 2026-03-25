@@ -339,6 +339,36 @@ export class SessionRuntime {
 		return SessionManager.list(cwd, this.manager.getStorageRoot());
 	}
 
+	async listAllSessions(): Promise<SessionInfo[]> {
+		return SessionManager.listAll(this.manager.getStorageRoot());
+	}
+
+	async deleteSession(sessionPath?: string): Promise<{ deletedPath: string; currentDeleted: boolean }> {
+		const currentFile = this.manager.getSessionFile();
+		const deletedPath = sessionPath ?? currentFile;
+		if (!deletedPath) {
+			throw new Error("Current session is in-memory and cannot be deleted.");
+		}
+		await this.pauseAgent();
+		this.pendingAutoCompaction = null;
+		const currentDeleted = currentFile === deletedPath;
+		const cwd = this.manager.getHeader().cwd;
+		const sessionDir = this.manager.getStorageRoot();
+		await SessionManager.deleteFile(deletedPath, { sessionDir });
+		if (!currentDeleted) {
+			return { deletedPath, currentDeleted: false };
+		}
+		const replacement =
+			(await SessionManager.continueRecent(cwd, sessionDir)) ??
+			(await SessionManager.create({ cwd, sessionDir }));
+		this.manager = replacement;
+		if (replacement.getEntries().length === 0) {
+			await this.initializeSessionState();
+		}
+		await this.restoreIntoAgent();
+		return { deletedPath, currentDeleted: true };
+	}
+
 	private emitRuntimeEvent(event: SessionRuntimeEvent): void {
 		for (const listener of this.runtimeListeners) {
 			listener(event);

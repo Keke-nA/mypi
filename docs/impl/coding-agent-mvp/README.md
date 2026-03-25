@@ -20,8 +20,10 @@
 当前状态总结：
 
 - session storage / tree / context rebuild / runtime bridge 已实现
-- CLI MVP 已实现
+- CLI MVP 已实现，并已调整为默认新会话启动
 - `pi-tui` 交互式 TUI MVP 已实现
+- `/tree` 已切成 branch-point-aware tree overlay，而不是简单平铺 selector
+- session selector 已支持 `project` / `all` scope 切换与删除 session
 - `~/.mypi/agent/config.json` / `presets.json` 配置加载已实现
 - 80% threshold auto-compaction / overflow recovery / context usage 估算已实现
 - 真实 OpenAI 兼容 smoke 已通过

@@ -100,6 +100,36 @@ describe("SessionRuntime", () => {
 		expect(resumedAgent.state.model.id).toBe("gpt-5-mini");
 	});
 
+	it("deletes sessions and falls back to the remaining recent session", async () => {
+		const sessionDir = await createTempDir();
+		const cwd = path.join(sessionDir, "project-delete");
+		const agent = createAgent();
+		const runtime = await SessionRuntime.create({ agent, cwd, sessionDir });
+
+		await agent.prompt("first session");
+		await runtime.waitForSettled();
+		const firstFile = runtime.getSessionManager().getSessionFile();
+		expect(firstFile).toBeTruthy();
+
+		await runtime.newSession({ cwd });
+		await agent.prompt("second session");
+		await runtime.waitForSettled();
+		const secondFile = runtime.getSessionManager().getSessionFile();
+		expect(secondFile).toBeTruthy();
+		expect(secondFile).not.toBe(firstFile);
+
+		const deletedOther = await runtime.deleteSession(firstFile!);
+		expect(deletedOther.currentDeleted).toBe(false);
+		expect(runtime.getSessionManager().getSessionFile()).toBe(secondFile);
+
+		const deletedCurrent = await runtime.deleteSession();
+		expect(deletedCurrent.currentDeleted).toBe(true);
+		expect(runtime.getSessionManager().getSessionFile()).not.toBe(secondFile);
+		expect(runtime.getSessionManager().getEntries().some((entry) => entry.type === "message")).toBe(false);
+		const sessions = await runtime.listSessions();
+		expect(sessions).toHaveLength(1);
+	});
+
 	it("navigates trees, forks sessions, and compacts runtime context", async () => {
 		const sessionDir = await createTempDir();
 		const cwd = path.join(sessionDir, "project");

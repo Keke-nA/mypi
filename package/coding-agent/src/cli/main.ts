@@ -3,10 +3,12 @@ import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import path from "node:path";
 import { configureAI, type AssistantMessage, type Model } from "@mypi/ai";
+import { ProcessTerminal, TUI } from "@mariozechner/pi-tui";
 import { Agent } from "@mypi/agent";
 import {
 	AgentSession,
 	InteractiveApp,
+	SessionManager,
 	convertToLlm,
 	createBranchSummaryGenerator,
 	createCodingSystemPrompt,
@@ -17,8 +19,10 @@ import {
 	messageToText,
 	resolveOpenAIModel,
 	resolvePersistedModel,
+	showSessionSelectorOverlay,
 	type LoadedAgentConfig,
 	type SessionEntry,
+	type SessionInfo,
 	type SessionThinkingLevel,
 	type WorkspaceToolName,
 } from "../index.js";
@@ -32,6 +36,7 @@ interface CliOptions {
 	sessionDir?: string;
 	sessionFile?: string;
 	continueRecent: boolean;
+	resumeSelectorOnStart: boolean;
 	inMemory: boolean;
 	activeTools: WorkspaceToolName[];
 	prompt?: string;
@@ -67,8 +72,9 @@ function usage(): string {
 		"  --cwd <path>            Workspace root, default: current directory",
 		"  --session-dir <path>    Session storage directory",
 		"  --session-file <path>   Open a specific session file",
+		"  --resume                Choose a project session to resume",
+		"  --resume-latest         Resume the most recent project session",
 		"  --prompt <text>         Run one prompt and exit",
-		"  --new                   Start a fresh session instead of resuming recent",
 		"  --in-memory             Keep session only in memory",
 		"  --tui                   Force pi-tui interactive mode",
 		"  --plain                 Force readline interactive mode",
@@ -86,8 +92,9 @@ function usage(): string {
 		"  /config                 Show resolved config",
 		"  /session                Show current session info",
 		"  /new                    Start a new session",
-		"  /sessions               List project sessions",
-		"  /resume [index|path]    Resume a listed session",
+		"  /sessions [--all]       List project sessions or all sessions",
+		"  /resume [--all] [arg]   Resume a listed session",
+		"  /delete [--all] [arg]   Delete current or chosen session",
 		"  /tree                   Print session tree",
 		"  /tree <id> [--summary]  Navigate to a tree node",
 		"  /fork [id]              Fork current session or the given node",
@@ -154,7 +161,8 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 		modelId: loadedConfig.settings.modelId ?? "gpt-5.4",
 		thinkingLevel: loadedConfig.settings.thinkingLevel ?? "off",
 		cwd: bootstrap.cwd,
-		continueRecent: loadedConfig.settings.continueRecent !== false,
+		continueRecent: loadedConfig.settings.continueRecent === true,
+		resumeSelectorOnStart: false,
 		inMemory: false,
 		activeTools: loadedConfig.settings.activeTools ?? ["read", "write", "edit", "bash"],
 		uiMode: loadedConfig.settings.uiMode ?? "auto",
@@ -171,6 +179,10 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 	if (loadedConfig.settings.systemPromptAppend) {
 		options.systemPromptAppend = loadedConfig.settings.systemPromptAppend;
 	}
+
+	let sawResumeSelectorFlag = false;
+	let sawResumeLatestFlag = false;
+	let sawSessionFileFlag = false;
 
 	for (let index = 0; index < argv.length; index++) {
 		const arg = argv[index]!;
@@ -216,21 +228,32 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 			continue;
 		}
 		if (arg === "--session-file") {
+			sawSessionFileFlag = true;
 			options.sessionFile = path.resolve(next());
 			options.continueRecent = false;
+			options.resumeSelectorOnStart = false;
+			continue;
+		}
+		if (arg === "--resume") {
+			sawResumeSelectorFlag = true;
+			options.resumeSelectorOnStart = true;
+			options.continueRecent = false;
+			continue;
+		}
+		if (arg === "--resume-latest") {
+			sawResumeLatestFlag = true;
+			options.continueRecent = true;
+			options.resumeSelectorOnStart = false;
 			continue;
 		}
 		if (arg === "--prompt") {
 			options.prompt = next();
 			continue;
 		}
-		if (arg === "--new") {
-			options.continueRecent = false;
-			continue;
-		}
 		if (arg === "--in-memory") {
 			options.inMemory = true;
 			options.continueRecent = false;
+			options.resumeSelectorOnStart = false;
 			continue;
 		}
 		if (arg === "--tui") {
@@ -255,6 +278,21 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 		throw new Error(`Unknown argument: ${arg}`);
 	}
 
+	if (sawResumeSelectorFlag && sawSessionFileFlag) {
+		throw new Error("--resume cannot be combined with --session-file.");
+	}
+	if (sawResumeLatestFlag && sawSessionFileFlag) {
+		throw new Error("--resume-latest cannot be combined with --session-file.");
+	}
+	if (sawResumeSelectorFlag && sawResumeLatestFlag) {
+		throw new Error("--resume cannot be combined with --resume-latest.");
+	}
+	if (sawResumeSelectorFlag && options.prompt) {
+		throw new Error("--resume cannot be combined with --prompt.");
+	}
+	if ((sawResumeSelectorFlag || sawResumeLatestFlag || sawSessionFileFlag) && options.inMemory) {
+		throw new Error("Resume options cannot be combined with --in-memory.");
+	}
 	if (!options.apiKey && !options.printConfig) {
 		throw new Error("Missing API key. Pass --api-key, set OPENAI_API_KEY, or configure ~/.mypi/agent/config.json.");
 	}
@@ -266,6 +304,19 @@ function buildSystemPrompt(cwd: string, appendText?: string): string {
 	return appendText ? `${createCodingSystemPrompt(cwd)}\n\n${appendText}` : createCodingSystemPrompt(cwd);
 }
 
+function formatStartupMode(options: CliOptions): string {
+	if (options.sessionFile) {
+		return "session-file";
+	}
+	if (options.resumeSelectorOnStart) {
+		return "resume-selector";
+	}
+	if (options.continueRecent) {
+		return "resume-latest";
+	}
+	return "new";
+}
+
 function formatEffectiveConfig(options: CliOptions): string {
 	const base = formatLoadedConfig(options.loadedConfig);
 	const lines = [
@@ -273,6 +324,7 @@ function formatEffectiveConfig(options: CliOptions): string {
 		"",
 		"effective CLI/session settings:",
 		`cwd: ${options.cwd}`,
+		`startupMode: ${formatStartupMode(options)}`,
 		`sessionFile: ${options.sessionFile ?? "(none)"}`,
 		`model: ${options.modelId}`,
 		`baseUrl: ${options.baseUrl ?? "(default)"}`,
@@ -342,6 +394,18 @@ function resolveEntryId(session: AgentSession, raw: string): string | null {
 		throw new Error(`Ambiguous entry id prefix: ${raw}`);
 	}
 	throw new Error(`Unknown entry id: ${raw}`);
+}
+
+function parseSessionScope(args: string[]): { scope: "project" | "all"; values: string[] } {
+	const scope = args.includes("--all") ? "all" : "project";
+	return {
+		scope,
+		values: args.filter((value) => value !== "--all"),
+	};
+}
+
+async function listSessionsForScope(session: AgentSession, scope: "project" | "all"): Promise<SessionInfo[]> {
+	return scope === "all" ? session.listAllSessions() : session.runtime.listSessions();
 }
 
 class ConsolePresenter {
@@ -466,6 +530,95 @@ class ConsolePresenter {
 	}
 }
 
+async function listProjectSessions(options: CliOptions): Promise<SessionInfo[]> {
+	return options.sessionDir
+		? SessionManager.list(options.cwd, options.sessionDir)
+		: SessionManager.list(options.cwd);
+}
+
+async function listAllSessions(options: CliOptions): Promise<SessionInfo[]> {
+	return options.sessionDir ? SessionManager.listAll(options.sessionDir) : SessionManager.listAll();
+}
+
+function resolveSessionSelection(value: string, items: readonly SessionInfo[]): string | null {
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+	const index = Number(trimmed);
+	if (Number.isInteger(index) && index >= 1 && index <= items.length) {
+		return items[index - 1]!.path;
+	}
+	return path.resolve(trimmed);
+}
+
+async function selectStartupSessionPathPlain(options: CliOptions): Promise<string | null | undefined> {
+	const rl = createInterface({ input: stdin, output: stdout });
+	try {
+		const scopeAnswer = (await rl.question("scope> [project/all] ")).trim().toLowerCase();
+		const scope = scopeAnswer === "all" || scopeAnswer === "a" ? "all" : "project";
+		const items = scope === "all" ? await listAllSessions(options) : await listProjectSessions(options);
+		if (items.length === 0) {
+			stdout.write("resume> No sessions found for selected scope. Starting a new session.\n");
+			return undefined;
+		}
+		for (const [index, item] of items.entries()) {
+			stdout.write(
+				`${index + 1}. ${item.name ?? "(unnamed)"} | messages=${item.messageCount} | modified=${item.modified} | ${item.path}\n`,
+			);
+		}
+		const selected = await rl.question("resume> ");
+		return resolveSessionSelection(selected, items);
+	} finally {
+		rl.close();
+	}
+}
+
+async function selectStartupSessionPathTui(options: CliOptions): Promise<string | null> {
+	const terminal = new ProcessTerminal();
+	const tui = new TUI(terminal);
+	let stopped = false;
+	const stop = () => {
+		if (stopped) return;
+		stopped = true;
+		tui.stop();
+	};
+
+	try {
+		tui.start();
+		tui.requestRender(true);
+		const selected = await showSessionSelectorOverlay({
+			tui,
+			loadData: async () => ({
+				project: await listProjectSessions(options),
+				all: await listAllSessions(options),
+			}),
+			deleteSession: async (sessionPath) => {
+				await SessionManager.deleteFile(sessionPath, options.sessionDir ? { sessionDir: options.sessionDir } : {});
+			},
+		});
+		return selected?.path ?? null;
+	} finally {
+		stop();
+	}
+}
+
+async function resolveStartupSessionFile(options: CliOptions): Promise<string | null | undefined> {
+	if (!options.resumeSelectorOnStart) {
+		return options.sessionFile;
+	}
+	const projectItems = await listProjectSessions(options);
+	const allItems = await listAllSessions(options);
+	if (projectItems.length === 0 && allItems.length === 0) {
+		stdout.write("resume> No sessions found. Starting a new session.\n");
+		return undefined;
+	}
+	if (!stdin.isTTY || !stdout.isTTY) {
+		throw new Error("--resume requires an interactive TTY.");
+	}
+	return shouldUseTui(options) ? selectStartupSessionPathTui(options) : selectStartupSessionPathPlain(options);
+}
+
 async function createSession(options: CliOptions): Promise<AgentSession> {
 	configureAI({
 		providers: {
@@ -532,25 +685,48 @@ async function handleCommand(
 			presenter.printSessionInfo();
 			return true;
 		case "/sessions": {
-			const items = await session.runtime.listSessions();
+			const parsed = parseSessionScope(rest);
+			const items = await listSessionsForScope(session, parsed.scope);
 			presenter.printSessions(items);
 			return true;
 		}
 		case "/resume": {
-			const items = await session.runtime.listSessions();
-			if (rest.length === 0) {
+			const parsed = parseSessionScope(rest);
+			const items = await listSessionsForScope(session, parsed.scope);
+			if (parsed.values.length === 0) {
 				presenter.printSessions(items);
 				const selected = (await rl.question("resume> ")).trim();
 				if (!selected) return true;
-				rest.push(selected);
+				parsed.values.push(selected);
 			}
-			const target = rest.join(" ");
+			const target = parsed.values.join(" ");
 			const index = Number(target);
 			if (Number.isInteger(index) && index >= 1 && index <= items.length) {
 				await session.switchSession(items[index - 1]!.path);
 			} else {
 				await session.switchSession(path.resolve(target));
 			}
+			presenter.printSessionInfo();
+			return true;
+		}
+		case "/delete": {
+			const parsed = parseSessionScope(rest);
+			if (parsed.values.length === 1 && parsed.values[0] === "current") {
+				await session.deleteSession();
+				presenter.printSessionInfo();
+				return true;
+			}
+			const items = await listSessionsForScope(session, parsed.scope);
+			if (parsed.values.length === 0) {
+				presenter.printSessions(items);
+				const selected = (await rl.question("delete> ")).trim();
+				if (!selected) return true;
+				parsed.values.push(selected);
+			}
+			const target = parsed.values.join(" ");
+			const index = Number(target);
+			const sessionPath = Number.isInteger(index) && index >= 1 && index <= items.length ? items[index - 1]!.path : path.resolve(target);
+			await session.deleteSession(sessionPath);
 			presenter.printSessionInfo();
 			return true;
 		}
@@ -674,6 +850,15 @@ async function main() {
 		if (options.printConfig) {
 			stdout.write(`${formatEffectiveConfig(options)}\n`);
 			return;
+		}
+		const startupSessionFile = await resolveStartupSessionFile(options);
+		if (startupSessionFile === null) {
+			return;
+		}
+		if (startupSessionFile !== undefined) {
+			options.sessionFile = startupSessionFile;
+			options.resumeSelectorOnStart = false;
+			options.continueRecent = false;
 		}
 		const session = await createSession(options);
 		if (options.prompt) {

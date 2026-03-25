@@ -7,6 +7,7 @@ import { messageToText } from "../core/messages.js";
 import { resolveOpenAIModel } from "../core/model-utils.js";
 import type { SessionEntry, SessionThinkingLevel } from "../core/session-types.js";
 import { showSelectOverlay } from "./select-overlay.js";
+import { showSessionSelectorOverlay } from "./session-selector-overlay.js";
 import { showSessionTreeOverlay } from "./session-tree-overlay.js";
 import { mypiEditorTheme, mypiSelectListTheme, uiColors } from "./theme.js";
 
@@ -55,6 +56,7 @@ export class InteractiveApp {
 					{ name: "new", description: "Start a new session" },
 					{ name: "sessions", description: "Open session selector" },
 					{ name: "resume", description: "Resume a session" },
+					{ name: "delete", description: "Delete a session" },
 					{ name: "tree", description: "Open tree navigator" },
 					{ name: "fork", description: "Fork current session or selected node" },
 					{ name: "compact", description: "Compact current branch" },
@@ -179,7 +181,7 @@ export class InteractiveApp {
 					"info",
 					[
 						"Commands:",
-						"/config /session /new /sessions /resume /tree /fork /compact /model /thinking /name /exit",
+						"/config /session /new /sessions /resume /delete /tree /fork /compact /model /thinking /name /exit",
 					].join("\n"),
 				);
 				this.refresh();
@@ -212,6 +214,18 @@ export class InteractiveApp {
 				} else {
 					await this.resumeByValue(rest.join(" "));
 				}
+				return true;
+			case "/delete":
+				if (rest.length === 0) {
+					await this.deleteFromSelector();
+				} else if (rest.join(" ").trim() === "current") {
+					await this.session.deleteSession();
+					this.pushNotice("info", "Deleted current session.");
+				} else {
+					await this.session.deleteSession(rest.join(" "));
+					this.pushNotice("info", "Deleted session.");
+				}
+				this.refresh();
 				return true;
 			case "/tree":
 				if (rest.length === 0) {
@@ -282,24 +296,21 @@ export class InteractiveApp {
 	}
 
 	private async resumeFromSelector(): Promise<void> {
-		const items = await this.session.runtime.listSessions();
-		if (items.length === 0) {
-			this.pushNotice("info", "No sessions found for this workspace.");
-			this.refresh();
-			return;
-		}
-		const selected = await showSelectOverlay({
+		const selected = await showSessionSelectorOverlay({
 			tui: this.tui,
-			title: "Resume Session",
-			items: items.map((item, index) => ({
-				value: item.path,
-				label: `${index + 1}. ${item.name ?? "(unnamed)"}`,
-				description: `${item.modified} • ${item.messageCount} messages`,
-			})),
-			theme: mypiSelectListTheme,
+			loadData: async () => ({
+				project: await this.session.runtime.listSessions(),
+				all: await this.session.listAllSessions(),
+			}),
+			deleteSession: async (sessionPath) => {
+				const result = await this.session.deleteSession(sessionPath);
+				this.pushNotice("info", result.currentDeleted ? "Deleted current session." : "Deleted session.");
+				this.refresh();
+			},
+			getCurrentSessionPath: () => this.session.state.session.sessionFile,
 		});
 		if (!selected) return;
-		await this.session.switchSession(selected.value);
+		await this.session.switchSession(selected.path);
 		this.pushNotice("info", "Resumed session.");
 		this.refresh();
 	}
@@ -315,6 +326,27 @@ export class InteractiveApp {
 		}
 		await this.session.switchSession(value);
 		this.pushNotice("info", "Resumed session.");
+		this.refresh();
+	}
+
+	private async deleteFromSelector(): Promise<void> {
+		const selected = await showSessionSelectorOverlay({
+			tui: this.tui,
+			title: "Delete Session",
+			loadData: async () => ({
+				project: await this.session.runtime.listSessions(),
+				all: await this.session.listAllSessions(),
+			}),
+			deleteSession: async (sessionPath) => {
+				const result = await this.session.deleteSession(sessionPath);
+				this.pushNotice("info", result.currentDeleted ? "Deleted current session." : "Deleted session.");
+				this.refresh();
+			},
+			getCurrentSessionPath: () => this.session.state.session.sessionFile,
+		});
+		if (!selected) return;
+		await this.session.deleteSession(selected.path);
+		this.pushNotice("info", "Deleted session.");
 		this.refresh();
 	}
 
