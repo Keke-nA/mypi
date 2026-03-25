@@ -23,4 +23,5 @@
 - `pi-tui` 交互式 TUI MVP 已实现
 - `~/.mypi/agent/config.json` / `presets.json` 配置加载已实现
 - 真实 OpenAI 兼容 smoke 已通过
+- auto-compaction 目前只有基础 compaction 能力，产品化实施稿见 `docs/plan/coding-agent-auto-compaction.md`
 - 还没做真正的复杂 `interactive-app` 产品 polish、权限审批、完整 auto-compaction UI
