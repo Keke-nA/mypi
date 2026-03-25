@@ -27,4 +27,7 @@ export const uiColors = {
 	accent: (text: string) => chalk.cyan(text),
 	subtle: (text: string) => chalk.gray(text),
 	bold: (text: string) => chalk.bold(text),
+	panelBorder: (text: string) => chalk.hex("#6aa9ff")(text),
+	selection: (text: string) => chalk.bgHex("#2d3748").white(text),
+	current: (text: string) => chalk.cyanBright(text),
 };

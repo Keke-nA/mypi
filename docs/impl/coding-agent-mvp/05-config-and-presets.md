@@ -65,7 +65,15 @@
     "tools": ["read", "write", "edit", "bash"],
     "sessionDir": "~/.mypi/agent/sessions",
     "continueRecent": true,
-    "systemPromptAppend": "Extra instructions"
+    "systemPromptAppend": "Extra instructions",
+    "compaction": {
+      "enabled": true,
+      "thresholdPercent": 80,
+      "reserveTokens": 16384,
+      "keepRecentTokens": 20000,
+      "retryOnOverflow": true,
+      "showUsageInUi": true
+    }
   },
   "preset": "implement"
 }
@@ -109,7 +117,11 @@
     "thinkingLevel": "medium",
     "tools": ["read", "bash", "edit", "write"],
     "instructions": "You are in implementation mode.",
-    "uiMode": "tui"
+    "uiMode": "tui",
+    "compaction": {
+      "thresholdPercent": 80,
+      "keepRecentTokens": 20000
+    }
   }
 }
 ```
@@ -133,6 +145,7 @@
 ### TUI 展示
 
 - status 区会显示当前 active preset（如果存在）
+- status 区会显示当前 context usage（可配置关闭）
 - 启动时如果 config/preset 有 warning，会以 notice 形式显示
 
 ## 当前限制

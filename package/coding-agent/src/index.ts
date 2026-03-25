@@ -1,6 +1,7 @@
 export * from "./core/session-types.js";
 export * from "./core/messages.js";
 export * from "./core/session-context.js";
+export * from "./core/context-usage.js";
 export * from "./core/session-manager.js";
 export * from "./core/branch-summarization.js";
 export * from "./core/session-compaction.js";

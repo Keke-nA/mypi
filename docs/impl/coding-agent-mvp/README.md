@@ -14,7 +14,8 @@
 2. `docs/impl/coding-agent-mvp/02-cli-mvp.md`
 3. `docs/impl/coding-agent-mvp/03-tui-mvp.md`
 4. `docs/impl/coding-agent-mvp/05-config-and-presets.md`
-5. `docs/impl/coding-agent-mvp/04-validation.md`
+5. `docs/impl/coding-agent-mvp/06-auto-compaction.md`
+6. `docs/impl/coding-agent-mvp/04-validation.md`
 
 当前状态总结：
 
@@ -22,6 +23,6 @@
 - CLI MVP 已实现
 - `pi-tui` 交互式 TUI MVP 已实现
 - `~/.mypi/agent/config.json` / `presets.json` 配置加载已实现
+- 80% threshold auto-compaction / overflow recovery / context usage 估算已实现
 - 真实 OpenAI 兼容 smoke 已通过
-- auto-compaction 目前只有基础 compaction 能力，产品化实施稿见 `docs/plan/coding-agent-auto-compaction.md`
-- 还没做真正的复杂 `interactive-app` 产品 polish、权限审批、完整 auto-compaction UI
+- 还没做真正的复杂 `interactive-app` 产品 polish、权限审批、更细颗粒的 auto-compaction UI

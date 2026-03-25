@@ -13,8 +13,11 @@
 - session context
 - session compaction
 - session runtime
+- context usage calculation
+- threshold auto-compaction
+- overflow recovery compact
 - workspace tools
-- config loader / preset merge
+- config loader / preset merge / compaction merge
 
 ## 真实 OpenAI 兼容 smoke
 
@@ -33,6 +36,7 @@ smoke 已验证：
 - tree navigation
 - branch summary
 - compaction
+- auto-compaction 接入后主链路未回归损坏
 
 ## CLI one-shot
 
@@ -65,6 +69,7 @@ HOME=/tmp/some-home node package/coding-agent/dist/cli/main.js --plain --in-memo
 - uiMode
 - tools
 - systemPromptAppend
+- compaction.enabled / thresholdPercent / reserveTokens / keepRecentTokens / retryOnOverflow / showUsageInUi
 
 ## 后续建议
 
@@ -73,5 +78,5 @@ HOME=/tmp/some-home node package/coding-agent/dist/cli/main.js --plain --in-memo
 1. 真正拆 `ui/interactive-app.ts` 为多个子组件
 2. 增加 `session selector`、`tree view`、`message renderer` 的独立文件
 3. 增加 destructive actions confirmation
-4. 增加 auto-compaction 与 overflow recovery
-5. 做真正的 TUI smoke / headless integration test
+4. 做真正的 TUI smoke / headless integration test
+5. 增加更细颗粒的 auto-compaction UI 与运行时开关

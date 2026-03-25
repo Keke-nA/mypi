@@ -37,6 +37,7 @@ interface CliOptions {
 	prompt?: string;
 	uiMode: "auto" | "tui" | "plain";
 	systemPromptAppend?: string;
+	compaction: LoadedAgentConfig["settings"]["compaction"];
 	loadedConfig: LoadedAgentConfig;
 	printConfig: boolean;
 }
@@ -157,6 +158,7 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 		inMemory: false,
 		activeTools: loadedConfig.settings.activeTools ?? ["read", "write", "edit", "bash"],
 		uiMode: loadedConfig.settings.uiMode ?? "auto",
+		compaction: loadedConfig.settings.compaction,
 		loadedConfig,
 		printConfig: false,
 	};
@@ -279,6 +281,12 @@ function formatEffectiveConfig(options: CliOptions): string {
 		`inMemory: ${options.inMemory ? "true" : "false"}`,
 		`continueRecent: ${options.continueRecent ? "true" : "false"}`,
 		`activeTools: ${options.activeTools.join(", ") || "(none)"}`,
+		`compaction.enabled: ${options.compaction.enabled ? "true" : "false"}`,
+		`compaction.thresholdPercent: ${options.compaction.thresholdPercent}`,
+		`compaction.reserveTokens: ${options.compaction.reserveTokens}`,
+		`compaction.keepRecentTokens: ${options.compaction.keepRecentTokens}`,
+		`compaction.retryOnOverflow: ${options.compaction.retryOnOverflow ? "true" : "false"}`,
+		`compaction.showUsageInUi: ${options.compaction.showUsageInUi ? "true" : "false"}`,
 		`systemPromptAppend: ${options.systemPromptAppend ? JSON.stringify(options.systemPromptAppend) : "(none)"}`,
 	];
 	return lines.join("\n");
@@ -374,6 +382,22 @@ class ConsolePresenter {
 					break;
 			}
 		});
+		this.session.subscribeRuntime((event) => {
+			switch (event.type) {
+				case "auto_compaction_start":
+					stdout.write(`auto-compact> start (${event.reason})\n`);
+					break;
+				case "auto_compaction_end":
+					if (event.errorMessage) {
+						stdout.write(`auto-compact> failed: ${event.errorMessage}\n`);
+						break;
+					}
+					stdout.write(`auto-compact> done${event.willRetry ? " (retrying)" : ""}\n`);
+					break;
+				default:
+					break;
+			}
+		});
 	}
 
 	printBanner() {
@@ -383,6 +407,7 @@ class ConsolePresenter {
 
 	printSessionInfo() {
 		const state = this.session.state;
+		const usage = this.session.getContextUsage();
 		stdout.write(
 			[
 				`sessionId: ${state.session.sessionId}`,
@@ -391,6 +416,7 @@ class ConsolePresenter {
 				`leafId: ${state.session.leafId ?? "root"}`,
 				`model: ${state.agent.model.provider}/${state.agent.model.id}`,
 				`thinking: ${state.agent.thinkingLevel}`,
+				`context: ${this.formatContextUsage(usage)}`,
 			].join("\n") + "\n",
 		);
 	}
@@ -405,6 +431,21 @@ class ConsolePresenter {
 				`${index + 1}. ${item.name ?? "(unnamed)"} | messages=${item.messageCount} | modified=${item.modified} | ${item.path}\n`,
 			);
 		}
+	}
+
+	printContextUsage() {
+		stdout.write(`context> ${this.formatContextUsage(this.session.getContextUsage())}\n`);
+	}
+
+	private formatContextUsage(usage: ReturnType<AgentSession["getContextUsage"]>): string {
+		if (!usage) {
+			return "(unavailable)";
+		}
+		const windowLabel = usage.contextWindow.toLocaleString();
+		if (usage.tokens === null || usage.percent === null) {
+			return `?/${windowLabel} (${usage.source})`;
+		}
+		return `${usage.percent.toFixed(1)}%/${windowLabel} (${usage.tokens.toLocaleString()} tokens, ${usage.source})`;
 	}
 
 	printTree() {
@@ -455,6 +496,10 @@ async function createSession(options: CliOptions): Promise<AgentSession> {
 		continueRecent: options.continueRecent,
 		inMemory: options.inMemory,
 		resolveModel: (modelRef) => resolvePersistedModel(modelRef, options.baseUrl),
+		autoCompaction: {
+			settings: options.compaction,
+			createSummaryGenerator: (currentModel) => createCompactionSummaryGenerator(currentModel as Model<any>),
+		},
 	});
 }
 
@@ -592,6 +637,7 @@ async function runInteractive(session: AgentSession, options: CliOptions) {
 				continue;
 			}
 			await session.prompt(input);
+			presenter.printContextUsage();
 		} catch (error) {
 			stdout.write(`error> ${error instanceof Error ? error.message : String(error)}\n`);
 		}
@@ -646,6 +692,7 @@ async function main() {
 				configSummary: formatEffectiveConfig(options),
 				...(options.loadedConfig.activePreset?.name === undefined ? {} : { activePresetName: options.loadedConfig.activePreset.name }),
 				warnings: options.loadedConfig.warnings,
+				showContextUsage: options.compaction.showUsageInUi,
 			});
 			app.start();
 			return;

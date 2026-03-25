@@ -4,6 +4,7 @@
 
 - `package/coding-agent/src/ui/theme.ts`
 - `package/coding-agent/src/ui/select-overlay.ts`
+- `package/coding-agent/src/ui/session-tree-overlay.ts`
 - `package/coding-agent/src/ui/interactive-app.ts`
 
 ## TUI MVP 做了什么
@@ -37,13 +38,19 @@
 
 ### 4. Overlay 行为
 
-已用 overlay + `SelectList` 实现：
+当前 overlay 分两类：
 
-- `/sessions` / `/resume` 的 session selector
-- `/tree` 的 tree selector
-- tree selector 之后的导航动作选择（直接导航 / 导航并 summary）
-- `/model` 无参数时的 model selector
-- `/thinking` 无参数时的 thinking selector
+- 继续用 `SelectList` 实现 `/sessions` / `/resume` / `/model` / `/thinking`
+- 为 `/tree` 单独实现了专门的 `session-tree-overlay`
+
+新的 `/tree` overlay 已支持：
+
+- 全屏风格的 tree panel
+- `Type to search` 搜索过滤
+- 用 `├─` / `└─` / `│` 显示 branch 结构
+- 高亮当前 leaf
+- `←/→` 折叠和展开 subtree
+- `tab` 切换“直接导航 / 导航并 summary”模式
 
 ### 5. Agent runtime 联动
 
@@ -58,8 +65,8 @@ TUI 直接绑定 `AgentSession`：
 这还是 MVP，不是最终 polished app：
 
 - transcript 目前是文本块重绘，不是更细颗粒的消息组件树
-- 还没有 footer/header/widget 等高级 UI 抽象
+- 还没有完整复刻 `pi` 那种多区块 layout / footer widget / mode line
 - 还没有权限审批弹窗
-- 还没有专门的 tree 视图组件和 session selector 组件文件拆分
+- session selector 仍然是简单 selector，后续可以继续做成和 tree overlay 一样的专门视图
 
 但这版已经是真正的 `pi-tui` 交互式 coding-agent，而不是 readline 壳。

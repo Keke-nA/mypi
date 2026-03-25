@@ -1,4 +1,5 @@
 import type { AgentMessage } from "@mypi/agent";
+import { estimateContextMessageTokens } from "./context-usage.js";
 import { buildSessionContext } from "./session-context.js";
 import type { CompactionEntry, CompactionSummaryResult, SessionEntry } from "./session-types.js";
 import { SessionManager } from "./session-manager.js";
@@ -33,44 +34,7 @@ export type CompactionSummaryGenerator = (
 ) => Promise<CompactionSummaryResult | string> | CompactionSummaryResult | string;
 
 export function estimateTokens(messages: readonly AgentMessage[]): number {
-	let total = 0;
-	for (const message of messages) {
-		switch (message.role) {
-			case "user": {
-				const text = typeof message.content === "string"
-					? message.content
-					: message.content.map((part) => (part.type === "text" ? part.text : `[image:${part.mimeType}]`)).join("\n");
-				total += Math.ceil(text.length / 4);
-				break;
-			}
-			case "assistant": {
-				const text = message.content
-					.map((part) => {
-						if (part.type === "text") return part.text;
-						if (part.type === "thinking") return part.thinking;
-						return JSON.stringify(part.arguments);
-					})
-					.join("\n");
-				total += Math.ceil(text.length / 4);
-				break;
-			}
-			case "toolResult":
-				total += Math.ceil(message.content.map((part) => (part.type === "text" ? part.text : "[image]")).join("\n").length / 4);
-				break;
-			case "branch_summary":
-			case "compaction_summary":
-				total += Math.ceil(message.summary.length / 4);
-				break;
-			case "custom_message": {
-				const text = typeof message.content === "string"
-					? message.content
-					: message.content.map((part) => (part.type === "text" ? part.text : `[image:${part.mimeType}]`)).join("\n");
-				total += Math.ceil(text.length / 4);
-				break;
-			}
-		}
-	}
-	return total;
+	return estimateContextMessageTokens(messages);
 }
 
 function entryMessages(entry: SessionEntry): AgentMessage[] {

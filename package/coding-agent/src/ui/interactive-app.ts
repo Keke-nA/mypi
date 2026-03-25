@@ -1,4 +1,4 @@
-import { CombinedAutocompleteProvider, Editor, Key, matchesKey, ProcessTerminal, Text, TUI, type SelectItem } from "@mariozechner/pi-tui";
+import { CombinedAutocompleteProvider, Editor, Key, matchesKey, ProcessTerminal, Text, TUI } from "@mariozechner/pi-tui";
 import type { AssistantMessage, Model } from "@mypi/ai";
 import type { AgentEvent } from "@mypi/agent";
 import type { AgentSession } from "../core/agent-session.js";
@@ -7,6 +7,7 @@ import { messageToText } from "../core/messages.js";
 import { resolveOpenAIModel } from "../core/model-utils.js";
 import type { SessionEntry, SessionThinkingLevel } from "../core/session-types.js";
 import { showSelectOverlay } from "./select-overlay.js";
+import { showSessionTreeOverlay } from "./session-tree-overlay.js";
 import { mypiEditorTheme, mypiSelectListTheme, uiColors } from "./theme.js";
 
 export interface InteractiveAppOptions {
@@ -18,6 +19,7 @@ export interface InteractiveAppOptions {
 	configSummary?: string;
 	activePresetName?: string;
 	warnings?: string[];
+	showContextUsage?: boolean;
 	onExit?: () => void;
 }
 
@@ -35,6 +37,7 @@ export class InteractiveApp {
 	private readonly editor: Editor;
 	private readonly notices: LocalNotice[] = [];
 	private readonly unsubscribe: () => void;
+	private readonly unsubscribeRuntime: () => void;
 	private running = false;
 	private quitting = false;
 
@@ -74,6 +77,23 @@ export class InteractiveApp {
 		this.tui.addChild(this.editor);
 		this.tui.setFocus(this.editor);
 		this.unsubscribe = this.session.agent.subscribe((event) => this.handleAgentEvent(event));
+		this.unsubscribeRuntime = this.session.subscribeRuntime((event) => {
+			if (event.type === "auto_compaction_start") {
+				this.editor.disableSubmit = true;
+				this.pushNotice("info", `auto-compact start (${event.reason})`);
+				this.refresh();
+				return;
+			}
+			if (event.type === "auto_compaction_end") {
+				this.editor.disableSubmit = this.session.agent.state.isStreaming;
+				if (event.errorMessage) {
+					this.pushNotice("error", `auto-compact failed: ${event.errorMessage}`);
+				} else {
+					this.pushNotice("info", `auto-compact done${event.willRetry ? " (retrying)" : ""}`);
+				}
+				this.refresh();
+			}
+		});
 		this.tui.addInputListener((data) => {
 			if (matchesKey(data, Key.ctrl("c"))) {
 				if (this.session.agent.state.isStreaming) {
@@ -97,6 +117,7 @@ export class InteractiveApp {
 		if (this.running) return;
 		this.running = true;
 		this.tui.start();
+		this.tui.requestRender(true);
 	}
 
 	async shutdown(): Promise<void> {
@@ -105,6 +126,7 @@ export class InteractiveApp {
 		this.session.abort();
 		await this.session.waitForIdle();
 		this.unsubscribe();
+		this.unsubscribeRuntime();
 		this.session.dispose();
 		this.tui.stop();
 		this.options.onExit?.();
@@ -297,26 +319,12 @@ export class InteractiveApp {
 	}
 
 	private async navigateTreeSelector(): Promise<void> {
-		const items = this.buildTreeItems();
-		const selected = await showSelectOverlay({
+		const selected = await showSessionTreeOverlay({
 			tui: this.tui,
-			title: "Session Tree",
-			items,
-			theme: mypiSelectListTheme,
+			tree: this.session.state.session.tree,
 		});
 		if (!selected) return;
-		const targetId = selected.value === "root" ? null : selected.value;
-		const action = await showSelectOverlay({
-			tui: this.tui,
-			title: "Tree Action",
-			items: [
-				{ value: "navigate", label: "Navigate", description: "Switch leaf without summary" },
-				{ value: "summary", label: "Navigate + Summary", description: "Append branch_summary before switching" },
-			],
-			theme: mypiSelectListTheme,
-		});
-		if (!action) return;
-		await this.navigateTo(targetId, action.value === "summary");
+		await this.navigateTo(selected.targetId, selected.summarize);
 	}
 
 	private async navigateTo(targetId: string | null, summarize: boolean): Promise<void> {
@@ -366,19 +374,6 @@ export class InteractiveApp {
 		return selected?.value ?? null;
 	}
 
-	private buildTreeItems(): SelectItem[] {
-		const manager = this.session.runtime.getSessionManager();
-		const items: SelectItem[] = [{ value: "root", label: "root", description: "Before the first entry" }];
-		for (const entry of manager.getEntries()) {
-			items.push({
-				value: entry.id,
-				label: `${entry.id.slice(0, 8)} ${this.entryLabel(entry)}`,
-				description: entry.timestamp,
-			});
-		}
-		return items;
-	}
-
 	private resolveEntryId(raw: string): string | null {
 		if (raw === "root" || raw === "null") {
 			return null;
@@ -394,6 +389,7 @@ export class InteractiveApp {
 
 	private describeSession(): string {
 		const state = this.session.state;
+		const usage = this.session.getContextUsage();
 		return [
 			`sessionId: ${state.session.sessionId}`,
 			`sessionFile: ${state.session.sessionFile ?? "(in-memory)"}`,
@@ -401,6 +397,7 @@ export class InteractiveApp {
 			`leafId: ${state.session.leafId ?? "root"}`,
 			`model: ${state.agent.model.provider}/${state.agent.model.id}`,
 			`thinking: ${state.agent.thinkingLevel}`,
+			`context: ${this.formatContextUsage(usage)}`,
 		].join("\n");
 	}
 
@@ -452,10 +449,11 @@ export class InteractiveApp {
 		const state = this.session.state;
 		const pendingTools = state.agent.pendingToolCalls.size;
 		const presetPart = this.options.activePresetName ? `${uiColors.accent("preset")} ${this.options.activePresetName}` : undefined;
+		const contextPart = this.options.showContextUsage === false ? undefined : `${uiColors.accent("ctx")} ${this.formatContextUsage(this.session.getContextUsage())}`;
 		return [
 			`${uiColors.accent("session")} ${state.session.sessionName ?? state.session.sessionId}`,
 			[presetPart, `${uiColors.accent("model")} ${state.agent.model.id}`, `${uiColors.accent("thinking")} ${state.agent.thinkingLevel}`, `${uiColors.accent("leaf")} ${state.session.leafId ? state.session.leafId.slice(0, 8) : "root"}`].filter(Boolean).join("   "),
-			`${uiColors.accent("streaming")} ${state.agent.isStreaming ? "yes" : "no"}   ${uiColors.accent("pending tools")} ${pendingTools}`,
+			[`${uiColors.accent("streaming")} ${state.agent.isStreaming ? "yes" : "no"}`, `${uiColors.accent("pending tools")} ${pendingTools}`, contextPart].filter(Boolean).join("   "),
 		].join("\n");
 	}
 
@@ -485,6 +483,17 @@ export class InteractiveApp {
 					? uiColors.tool
 					: uiColors.subtle;
 		return `${style(uiColors.bold(label))}\n${text || uiColors.muted("(empty)")}`;
+	}
+
+	private formatContextUsage(usage: ReturnType<AgentSession["getContextUsage"]>): string {
+		if (!usage) {
+			return "(unavailable)";
+		}
+		const windowLabel = usage.contextWindow.toLocaleString();
+		if (usage.tokens === null || usage.percent === null) {
+			return `?/${windowLabel}`;
+		}
+		return `${usage.percent.toFixed(1)}%/${windowLabel}`;
 	}
 
 	private extractAssistantText(message: AssistantMessage): string {

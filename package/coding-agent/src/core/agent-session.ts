@@ -1,7 +1,11 @@
 import { Agent, type AgentOptions } from "@mypi/agent";
 import type { Model } from "@mypi/ai";
 import { convertToLlm } from "./messages.js";
-import { SessionRuntime, type SessionRuntimeCreateOptions } from "./session-runtime.js";
+import {
+	SessionRuntime,
+	type SessionRuntimeCreateOptions,
+	type SessionRuntimeEvent,
+} from "./session-runtime.js";
 import type {
 	CompactionEntry,
 	SessionForkOptions,
@@ -48,12 +52,14 @@ export class AgentSession {
 		};
 	}
 
-	prompt(...args: Parameters<Agent["prompt"]>) {
-		return (this.agent.prompt as (...params: Parameters<Agent["prompt"]>) => Promise<void>)(...args);
+	async prompt(...args: Parameters<Agent["prompt"]>) {
+		await (this.agent.prompt as (...params: Parameters<Agent["prompt"]>) => Promise<void>)(...args);
+		await this.runtime.waitForSettled();
 	}
 
-	continue() {
-		return this.agent.continue();
+	async continue() {
+		await this.agent.continue();
+		await this.runtime.waitForSettled();
 	}
 
 	abort() {
@@ -101,6 +107,14 @@ export class AgentSession {
 
 	setLabel(targetId: string | null, label: string | null) {
 		return this.runtime.setLabel(targetId, label);
+	}
+
+	getContextUsage() {
+		return this.runtime.getContextUsage();
+	}
+
+	subscribeRuntime(listener: (event: SessionRuntimeEvent) => void): () => void {
+		return this.runtime.subscribe(listener);
 	}
 
 	dispose() {

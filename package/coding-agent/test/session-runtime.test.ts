@@ -78,6 +78,7 @@ describe("SessionRuntime", () => {
 		const runtime = await SessionRuntime.create({ agent, cwd, sessionDir });
 
 		await agent.prompt("hello runtime");
+		await runtime.waitForSettled();
 		await runtime.setThinkingLevel("low");
 		await runtime.setModel(getModel("openai", "gpt-5-mini"));
 
@@ -106,22 +107,26 @@ describe("SessionRuntime", () => {
 		const runtime = await SessionRuntime.create({ agent, cwd, sessionDir });
 
 		await agent.prompt("first");
+		await runtime.waitForSettled();
 		const [modelChange, thinkingChange, userEntry] = runtime.getSessionManager().getEntries();
 		expect(modelChange?.type).toBe("model_change");
 		expect(thinkingChange?.type).toBe("thinking_level_change");
 		expect(userEntry?.type).toBe("message");
 
-		await runtime.navigateTree(userEntry?.id ?? null);
-		expect(agent.state.messages).toHaveLength(1);
-		expect(agent.state.messages[0]).toMatchObject({ role: "user" });
+		const navigated = await runtime.navigateTree(userEntry?.id ?? null);
+		expect(navigated.editorText).toBe("first");
+		expect(agent.state.messages).toHaveLength(0);
 
 		await agent.prompt("second branch");
+		await runtime.waitForSettled();
 		const forked = await runtime.fork({ fromId: userEntry?.id ?? null, cwd, sessionDir });
 		expect(forked.editorText).toBe("first");
 		expect(forked.session.getHeader().parentSession).toBeTruthy();
-		expect(agent.state.messages).toHaveLength(1);
+		expect(forked.session.getLeafId()).toBe(thinkingChange?.id ?? null);
+		expect(agent.state.messages).toHaveLength(0);
 
 		await agent.prompt("fork continuation");
+		await runtime.waitForSettled();
 		await runtime.compact({
 			settings: { keepRecentTokens: 50 },
 			generateSummary: ({ previousSummary, messages }) => ({

@@ -28,7 +28,12 @@ describe("agent config", () => {
 			path.join(agentDir, "config.json"),
 			JSON.stringify({
 				openai: { apiKey: "global-key", baseUrl: "https://global.example/v1", model: "gpt-5-mini" },
-				agent: { thinkingLevel: "low", tools: ["read", "bash"], continueRecent: false },
+				agent: {
+					thinkingLevel: "low",
+					tools: ["read", "bash"],
+					continueRecent: false,
+					compaction: { thresholdPercent: 75, keepRecentTokens: 12345 },
+				},
 				preset: "implement",
 			}),
 		);
@@ -42,7 +47,12 @@ describe("agent config", () => {
 		await writeFile(
 			path.join(agentDir, "presets.json"),
 			JSON.stringify({
-				implement: { model: "gpt-4o-mini", thinkingLevel: "medium", instructions: "preset instructions" },
+				implement: {
+					model: "gpt-4o-mini",
+					thinkingLevel: "medium",
+					instructions: "preset instructions",
+					compaction: { reserveTokens: 8192, showUsageInUi: false },
+				},
 			}),
 		);
 
@@ -54,6 +64,10 @@ describe("agent config", () => {
 		expect(loaded.settings.continueRecent).toBe(false);
 		expect(loaded.settings.activeTools).toEqual(["read", "edit"]);
 		expect(loaded.settings.systemPromptAppend).toBe("project prompt\n\npreset instructions");
+		expect(loaded.settings.compaction.thresholdPercent).toBe(75);
+		expect(loaded.settings.compaction.keepRecentTokens).toBe(12345);
+		expect(loaded.settings.compaction.reserveTokens).toBe(8192);
+		expect(loaded.settings.compaction.showUsageInUi).toBe(false);
 		expect(loaded.activePreset?.name).toBe("implement");
 	});
 
@@ -67,14 +81,19 @@ describe("agent config", () => {
 			explicitPath,
 			JSON.stringify({
 				openai: { baseUrl: "https://explicit.example/v1", model: "gpt-5-mini" },
-				agent: { uiMode: "plain", sessionDir: "./sessions-cache", tools: ["read", "write"] },
+				agent: {
+					uiMode: "plain",
+					sessionDir: "./sessions-cache",
+					tools: ["read", "write"],
+					compaction: { thresholdPercent: 70, retryOnOverflow: false },
+				},
 				preset: "fast",
 			}),
 		);
 		await writeFile(
 			path.join(agentDir, "presets.json"),
 			JSON.stringify({
-				fast: { model: "gpt-4o-mini", tools: ["read"], instructions: "fast mode" },
+				fast: { model: "gpt-4o-mini", tools: ["read"], instructions: "fast mode", compaction: { keepRecentTokens: 9000 } },
 			}),
 		);
 
@@ -86,6 +105,8 @@ describe("agent config", () => {
 				OPENAI_API_KEY: "env-key",
 				OPENAI_MODEL: "gpt-5.4",
 				MYPI_UI_MODE: "tui",
+				MYPI_COMPACTION_THRESHOLD_PERCENT: "85",
+				MYPI_COMPACTION_SHOW_USAGE_IN_UI: "false",
 			},
 		});
 
@@ -95,6 +116,10 @@ describe("agent config", () => {
 		expect(loaded.settings.uiMode).toBe("tui");
 		expect(loaded.settings.activeTools).toEqual(["read"]);
 		expect(loaded.settings.sessionDir).toBe(path.resolve(cwd, "sessions-cache"));
+		expect(loaded.settings.compaction.thresholdPercent).toBe(85);
+		expect(loaded.settings.compaction.keepRecentTokens).toBe(9000);
+		expect(loaded.settings.compaction.retryOnOverflow).toBe(false);
+		expect(loaded.settings.compaction.showUsageInUi).toBe(false);
 		expect(formatLoadedConfig(loaded)).toContain("activePreset: fast");
 	});
 });

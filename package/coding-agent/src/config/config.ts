@@ -1,6 +1,8 @@
 import os from "node:os";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
+import type { ResolvedAutoCompactionSettings, AutoCompactionSettings } from "../core/context-usage.js";
+import { resolveAutoCompactionSettings } from "../core/context-usage.js";
 import type { SessionThinkingLevel } from "../core/session-types.js";
 import { getWorkspaceToolNames, type WorkspaceToolName } from "../tools/workspace-tools.js";
 
@@ -12,6 +14,7 @@ export interface MypiPreset {
 	tools?: WorkspaceToolName[] | Partial<Record<WorkspaceToolName, boolean>>;
 	instructions?: string;
 	uiMode?: "auto" | "tui" | "plain";
+	compaction?: AutoCompactionSettings;
 }
 
 export interface MypiConfigFile {
@@ -27,6 +30,7 @@ export interface MypiConfigFile {
 		sessionDir?: string;
 		continueRecent?: boolean;
 		systemPromptAppend?: string;
+		compaction?: AutoCompactionSettings;
 	};
 	preset?: string;
 }
@@ -53,6 +57,7 @@ export interface ResolvedAgentSettings {
 	activeTools?: WorkspaceToolName[];
 	systemPromptAppend?: string;
 	presetName?: string;
+	compaction: ResolvedAutoCompactionSettings;
 }
 
 export interface LoadedAgentConfig {
@@ -137,6 +142,13 @@ function appendInstructions(base: string | undefined, next: string | undefined):
 	return `${base}\n\n${next}`;
 }
 
+function mergeCompactionSettings(
+	current: ResolvedAutoCompactionSettings,
+	next: AutoCompactionSettings | undefined,
+): ResolvedAutoCompactionSettings {
+	return resolveAutoCompactionSettings({ ...current, ...(next ?? {}) });
+}
+
 function applyConfigFile(
 	current: ResolvedAgentSettings,
 	config: MypiConfigFile | undefined,
@@ -155,6 +167,7 @@ function applyConfigFile(
 	const tools = normalizeTools(config.agent?.tools, context.warnings);
 	if (tools) next.activeTools = tools;
 	if (config.agent?.systemPromptAppend) next.systemPromptAppend = config.agent.systemPromptAppend;
+	if (config.agent?.compaction) next.compaction = mergeCompactionSettings(current.compaction, config.agent.compaction);
 	if (config.preset) next.presetName = config.preset;
 	return next;
 }
@@ -181,6 +194,7 @@ function applyPreset(
 	if (preset.baseUrl) next.baseUrl = preset.baseUrl;
 	if (preset.thinkingLevel) next.thinkingLevel = preset.thinkingLevel;
 	if (preset.uiMode) next.uiMode = preset.uiMode;
+	if (preset.compaction) next.compaction = mergeCompactionSettings(current.compaction, preset.compaction);
 	const tools = normalizeTools(preset.tools, warnings);
 	if (tools) next.activeTools = tools;
 	const appendedInstructions = appendInstructions(current.systemPromptAppend, preset.instructions);
@@ -188,6 +202,19 @@ function applyPreset(
 		next.systemPromptAppend = appendedInstructions;
 	}
 	return { settings: next, activePreset: { name: presetName, preset } };
+}
+
+function parseBooleanEnv(value: string | undefined): boolean | undefined {
+	if (!value) return undefined;
+	if (value === "1" || value.toLowerCase() === "true") return true;
+	if (value === "0" || value.toLowerCase() === "false") return false;
+	return undefined;
+}
+
+function parseNumberEnv(value: string | undefined): number | undefined {
+	if (!value) return undefined;
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function applyEnv(current: ResolvedAgentSettings, env: Record<string, string | undefined>): ResolvedAgentSettings {
@@ -202,6 +229,22 @@ function applyEnv(current: ResolvedAgentSettings, env: Record<string, string | u
 		if (resolvedSessionDir !== undefined) {
 			next.sessionDir = resolvedSessionDir;
 		}
+	}
+	const compactionUpdate: AutoCompactionSettings = {};
+	const compactionEnabled = parseBooleanEnv(env.MYPI_COMPACTION_ENABLED);
+	if (compactionEnabled !== undefined) compactionUpdate.enabled = compactionEnabled;
+	const thresholdPercent = parseNumberEnv(env.MYPI_COMPACTION_THRESHOLD_PERCENT);
+	if (thresholdPercent !== undefined) compactionUpdate.thresholdPercent = thresholdPercent;
+	const reserveTokens = parseNumberEnv(env.MYPI_COMPACTION_RESERVE_TOKENS);
+	if (reserveTokens !== undefined) compactionUpdate.reserveTokens = reserveTokens;
+	const keepRecentTokens = parseNumberEnv(env.MYPI_COMPACTION_KEEP_RECENT_TOKENS);
+	if (keepRecentTokens !== undefined) compactionUpdate.keepRecentTokens = keepRecentTokens;
+	const retryOnOverflow = parseBooleanEnv(env.MYPI_COMPACTION_RETRY_ON_OVERFLOW);
+	if (retryOnOverflow !== undefined) compactionUpdate.retryOnOverflow = retryOnOverflow;
+	const showUsageInUi = parseBooleanEnv(env.MYPI_COMPACTION_SHOW_USAGE_IN_UI);
+	if (showUsageInUi !== undefined) compactionUpdate.showUsageInUi = showUsageInUi;
+	if (Object.keys(compactionUpdate).length > 0) {
+		next.compaction = mergeCompactionSettings(current.compaction, compactionUpdate);
 	}
 	return next;
 }
@@ -254,6 +297,7 @@ export async function loadAgentConfig(options: LoadAgentConfigOptions = {}): Pro
 		continueRecent: true,
 		uiMode: "auto",
 		activeTools: DEFAULT_TOOLS.slice(),
+		compaction: resolveAutoCompactionSettings(undefined),
 	};
 
 	settings = applyConfigFile(settings, globalConfig, {
@@ -307,6 +351,12 @@ export function formatLoadedConfig(config: LoadedAgentConfig): string {
 		`sessionDir: ${config.settings.sessionDir ?? "(default)"}`,
 		`continueRecent: ${config.settings.continueRecent === false ? "false" : "true"}`,
 		`activeTools: ${(config.settings.activeTools ?? DEFAULT_TOOLS).join(", ") || "(none)"}`,
+		`compaction.enabled: ${config.settings.compaction.enabled ? "true" : "false"}`,
+		`compaction.thresholdPercent: ${config.settings.compaction.thresholdPercent}`,
+		`compaction.reserveTokens: ${config.settings.compaction.reserveTokens}`,
+		`compaction.keepRecentTokens: ${config.settings.compaction.keepRecentTokens}`,
+		`compaction.retryOnOverflow: ${config.settings.compaction.retryOnOverflow ? "true" : "false"}`,
+		`compaction.showUsageInUi: ${config.settings.compaction.showUsageInUi ? "true" : "false"}`,
 		`systemPromptAppend: ${config.settings.systemPromptAppend ? JSON.stringify(config.settings.systemPromptAppend) : "(none)"}`,
 	];
 	if (config.warnings.length > 0) {
