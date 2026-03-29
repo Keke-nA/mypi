@@ -169,6 +169,18 @@ console.log(
 - 重放上下文
 - 在后续 turn 中继续使用历史 assistant 输出
 
+另外，现在对“中途中断的 assistant”也有一条明确语义：
+
+- 如果流式输出过程中已经产出了可见文本，最终 `AssistantMessage` 仍会保留这部分 `text`
+- 到下一轮真正发给模型前，`ai` 层会把这类 `stopReason = error/aborted` 的 assistant **降级为仅包含 text 的 assistant message** 参与重放
+- 不会重放其中未完成的 `thinking` / `toolCall`，避免 provider API 因不完整中间态报错
+
+所以这里支持的是：
+
+> “保留用户已经看到的 partial assistant 文本，并在下一轮继续基于它往下生成”
+
+而不是网络层面的流断点续传。
+
 ### `AssistantMessageEvent`
 统一流式事件协议。
 
@@ -210,7 +222,15 @@ provider 注册
 - `getModels()`
 - `getProviders()`
 
+当前内建模型已经覆盖：
+
+- OpenAI Responses 主线模型
+- Anthropic Messages 主线模型（如 `claude-sonnet-4-5`、`claude-opus-4-6`）
+- 一个内建的 Anthropic-compatible Kimi 模型：`kimi-k2.5`
+
 因此上层不会自己拼某个 provider 的 endpoint 或 pricing，而是先拿一个标准化 `Model` 对象。
+
+另外，上层如果指定的是“已知 provider，但 registry 里还没有的 model id”，`coding-agent` 这层也已经支持按 provider 构造兼容模型对象继续运行，所以内建 registry 和兼容兜底两条路径现在是并存的。
 
 ### 4.2 provider 注册
 

@@ -291,7 +291,7 @@ export function isSilentResponseText(text: string): boolean {
   return trimmed === "[SILENT]" || trimmed.startsWith("[SILENT]");
 }
 
-function buildSystemPrompt(
+export function buildSystemPrompt(
   workspacePath: string,
   hostWorkspacePath: string,
   channelId: string,
@@ -306,46 +306,117 @@ function buildSystemPrompt(
   const channelSkillsPath = path.posix.join(channelPath, "skills");
   const eventsPath = path.posix.join(workspacePath, "events");
   const settingsPath = path.posix.join(workspacePath, "settings.json");
-  const skillSummary = formatSkillsForPrompt(skills);
-
-  const extra = [
-    "You are mom, a Slack-based coding assistant.",
-    `Current Slack channel: ${channelId}`,
-    `Sandbox mode: ${sandbox.type === "host" ? "host" : `docker:${sandbox.container}`}`,
-    "All Slack-visible files and history live under the workspace root.",
-    `Sandbox workspace root: ${workspacePath}`,
-    `Host workspace root: ${hostWorkspacePath}`,
-    `Channel root: ${channelPath}`,
-    `Channel log path: ${path.posix.join(channelPath, "log.jsonl")}`,
-    `Channel context path: ${path.posix.join(channelPath, "context.jsonl")}`,
-    `Workspace skills dir: ${workspaceSkillsPath}`,
-    `Channel skills dir: ${channelSkillsPath}`,
-    `Events dir: ${eventsPath}`,
-    `Workspace settings path: ${settingsPath}`,
+  const systemLogPath = path.posix.join(workspacePath, "SYSTEM.md");
+  const skillSummary = skills.length > 0 ? formatSkillsForPrompt(skills) : "(no skills installed yet)";
+  const environmentLines =
     sandbox.type === "docker"
-      ? `All read/write/edit/bash tool calls run inside the docker sandbox. Inside the sandbox, the real workspace root is ${workspacePath}. Never use host paths like ${hostWorkspacePath}/... in tool calls. If older logs or replies mention host paths under ${hostWorkspacePath}, translate them to ${workspacePath}/... before using tools.`
-      : `All read/write/edit/bash tool calls run directly on the host. The real workspace root is ${workspacePath}.`,
-    `When mentioning paths in replies, prefer sandbox-visible paths under ${workspacePath} or relative paths from it.`,
-    "When useful, preserve durable facts in MEMORY.md files.",
+      ? [
+          "You are running inside a Docker sandbox.",
+          `- Sandbox workspace root: ${workspacePath}`,
+          `- Host workspace root: ${hostWorkspacePath}`,
+          `- Docker container: ${sandbox.container}`,
+          "- All read/write/edit/bash tool calls run inside the container.",
+          `- Never use host paths like ${hostWorkspacePath}/... in tool calls. Translate them to ${workspacePath}/... first.`,
+          `- When older logs or replies mention host paths under ${hostWorkspacePath}, convert them to sandbox-visible paths under ${workspacePath} before using tools.`,
+          `- When mentioning paths in replies, prefer sandbox-visible paths under ${workspacePath} or relative paths from it.`,
+        ]
+      : [
+          "You are running directly on the host machine.",
+          `- Workspace root: ${workspacePath}`,
+          "- All read/write/edit/bash tool calls run on the host.",
+          `- When mentioning paths in replies, prefer paths under ${workspacePath} or relative paths from it.`,
+        ];
+
+  const lines = [
+    base,
+    "",
+    "You are mom, a Slack-based coding assistant. Be concise. No emojis.",
+    "",
+    "## Context",
+    "- For current date/time, use: date",
+    "- You have access to previous conversation context including tool results from prior turns.",
+    "- For older history beyond your current context window, search the channel log.jsonl.",
+    "- All Slack-visible files and history live under the workspace root.",
+    `- Current Slack channel: ${channelId}`,
+    "",
+    "## Slack Formatting (mrkdwn, NOT Markdown)",
+    "Bold: *text*, Italic: _text_, Code: `code`, Block: ```code```, Links: <url|text>",
+    "Do NOT use **double asterisks** or [markdown](links).",
+    "",
+    "## Environment",
+    ...environmentLines,
+    `- Channel root: ${channelPath}`,
+    `- Channel log path: ${path.posix.join(channelPath, "log.jsonl")}`,
+    `- Channel context path: ${path.posix.join(channelPath, "context.jsonl")}`,
+    `- Workspace skills dir: ${workspaceSkillsPath}`,
+    `- Channel skills dir: ${channelSkillsPath}`,
+    `- Events dir: ${eventsPath}`,
+    `- Workspace settings path: ${settingsPath}`,
+    "",
+    "## Workspace Layout",
+    `${workspacePath}/`,
+    "├── MEMORY.md                    # Global memory",
+    "├── SYSTEM.md                    # Environment/config change log",
+    "├── settings.json                # Workspace-level model/prompt settings",
+    "├── skills/                      # Workspace-level reusable skills",
+    "├── events/                      # Scheduled wake-up messages",
+    `└── ${channelId}/                # This Slack channel`,
+    "    ├── MEMORY.md                # Channel-specific memory",
+    "    ├── log.jsonl                # Slack-visible history",
+    "    ├── context.jsonl            # Persisted agent context",
+    "    ├── attachments/             # User-shared files",
+    "    ├── scratch/                 # Working directory",
+    "    └── skills/                  # Channel-specific skills",
     "",
     "## Skills",
     "Create reusable CLI skills for recurring workflows.",
-    "Each skill lives in its own directory and must include a SKILL.md file with YAML frontmatter:",
+    `Store them in ${workspaceSkillsPath}/<name>/ or ${channelSkillsPath}/<name>/.`,
+    "Each skill directory must include a SKILL.md file with YAML frontmatter:",
     "```markdown\n---\nname: skill-name\ndescription: Short description\n---\n\n# Skill Name\n\nUsage instructions. Scripts live under {baseDir}/\n```",
     "Workspace-level skills are shared across channels. Channel-level skills override workspace skills with the same name.",
-    `Available skills:\n${skillSummary}`,
+    "Available skills:",
+    skillSummary,
     "",
     "## Events",
-    "You can schedule synthetic wake-up messages by writing JSON files into the events directory.",
+    `You can schedule synthetic wake-up messages by writing JSON files into ${eventsPath}/.`,
     `Immediate: {"type":"immediate","channelId":"${channelId}","text":"Check new GitHub issues"}`,
     `One-shot: {"type":"one-shot","channelId":"${channelId}","text":"Remind me tomorrow","at":"2026-03-29T09:00:00+08:00"}`,
     `Periodic: {"type":"periodic","channelId":"${channelId}","text":"Daily standup summary","schedule":"0 9 * * 1-5","timezone":"${Intl.DateTimeFormat().resolvedOptions().timeZone}"}`,
-    "Use unique filenames so events do not overwrite each other. Immediate and one-shot events are deleted after they fire. Periodic events keep running until the file is removed.",
+    "Use unique filenames so events do not overwrite each other.",
+    "Immediate and one-shot events are deleted after they fire. Periodic events keep running until the file is removed.",
     "For periodic or background checks where there is nothing actionable to report, respond with exactly [SILENT] and nothing else. The harness will delete the status message and post nothing to Slack.",
-    memory ? `\n## Memory\n${memory}` : "",
-    systemPromptAppend && systemPromptAppend.trim().length > 0 ? `\n## Workspace Settings Prompt Append\n${systemPromptAppend}` : "",
-  ].filter((part) => part.length > 0);
-  return `${base}\n\n${extra.join("\n")}`;
+    "",
+    "## Memory",
+    "When useful, preserve durable facts in MEMORY.md files.",
+    `- Workspace memory: ${path.posix.join(workspacePath, "MEMORY.md")}`,
+    `- Channel memory: ${path.posix.join(channelPath, "MEMORY.md")}`,
+    memory || "(no saved memory)",
+    "",
+    "## System Configuration Log",
+    `Maintain ${systemLogPath} to record environment modifications such as installed packages, environment variables, config changes, and skill dependencies.`,
+    "",
+    "## Log Queries",
+    "The log contains user messages and your final responses (not tool calls/results).",
+    sandbox.type === "docker" ? "Install jq inside the sandbox if needed: apk add jq" : "Use jq if it is available on the host.",
+    "```bash",
+    `tail -30 ${path.posix.join(channelPath, "log.jsonl")} | jq -c '{date: .date[0:19], user: (.userName // .user), text}'`,
+    `grep -i "topic" ${path.posix.join(channelPath, "log.jsonl")} | jq -c '{date: .date[0:19], user: (.userName // .user), text}'`,
+    "```",
+    "",
+    "## Tools",
+    "- bash: Run shell commands (ls, rg, find, jq, curl, build, test, package managers, scripts)",
+    "- read: Read files",
+    "- write: Create or overwrite files",
+    "- edit: Surgical file edits",
+    "- attach: Share files to Slack",
+    'Each tool call must include a concise "label" parameter that will be shown in Slack thread logs.',
+  ];
+
+  if (systemPromptAppend && systemPromptAppend.trim().length > 0) {
+    lines.push("", "## Workspace Settings Prompt Append", systemPromptAppend.trim());
+  }
+
+  return lines.join("\n");
 }
 
 function extractLastAssistantMessage(session: AgentSession): AssistantMessage | null {
@@ -652,6 +723,30 @@ function extractToolResultText(result: unknown): string {
   });
 }
 
+async function syncSessionConfig(
+  session: AgentSession,
+  model: Model<any>,
+  thinkingLevel: SessionThinkingLevel,
+  channelId: string,
+): Promise<void> {
+  const currentModel = session.agent.state.model;
+  if (currentModel.provider !== model.provider || currentModel.id !== model.id) {
+    logInfo(
+      "Switching persisted channel model",
+      `${channelId}: ${currentModel.provider}/${currentModel.id} -> ${model.provider}/${model.id}`,
+    );
+    await session.setModel(model);
+  }
+
+  if (session.agent.state.thinkingLevel !== thinkingLevel) {
+    logInfo(
+      "Switching persisted channel thinking level",
+      `${channelId}: ${session.agent.state.thinkingLevel} -> ${thinkingLevel}`,
+    );
+    await session.setThinkingLevel(thinkingLevel);
+  }
+}
+
 async function createRunner(channelId: string, config: MomAgentConfig): Promise<AgentRunner> {
   const channelDir = path.join(config.workingDir, channelId);
   const contextFile = path.join(channelDir, "context.jsonl");
@@ -884,6 +979,7 @@ async function createRunner(channelId: string, config: MomAgentConfig): Promise<
       createSummaryGenerator: (currentModel) => createCompactionSummaryGenerator(currentModel as Model<any>),
     },
   });
+  await syncSessionConfig(session, model, config.thinkingLevel, channelId);
 
   return {
     async run(ctx: RunnerContext): Promise<{ stopReason: string; errorMessage?: string }> {

@@ -1,5 +1,28 @@
 import type { Api, AssistantMessage, Message, Model, ToolCall, ToolResultMessage } from "../types.js";
 
+function toReplayableInterruptedAssistant(message: AssistantMessage): AssistantMessage | undefined {
+	const replayableContent = message.content.flatMap((block) => {
+		if (block.type !== "text") {
+			return [];
+		}
+		if (block.text.trim().length === 0) {
+			return [];
+		}
+		return [{ type: "text" as const, text: block.text }];
+	});
+
+	if (replayableContent.length === 0) {
+		return undefined;
+	}
+
+	const { errorMessage: _errorMessage, ...base } = message;
+	return {
+		...base,
+		content: replayableContent,
+		stopReason: "stop",
+	};
+}
+
 /**
  * Normalize tool call ID for cross-provider compatibility.
  * OpenAI Responses API generates IDs that are 450+ chars with special characters like `|`.
@@ -32,6 +55,13 @@ export function transformMessages<TApi extends Api>(
 		// Assistant messages need transformation check
 		if (msg.role === "assistant") {
 			const assistantMsg = msg as AssistantMessage;
+			if (assistantMsg.stopReason === "error" || assistantMsg.stopReason === "aborted") {
+				// Interrupted assistant turns are persisted in session history, but replaying their
+				// thinking/tool-call blocks can cause provider-specific API errors. Keep only the
+				// visible text the user already saw so the next user turn can continue from it.
+				return toReplayableInterruptedAssistant(assistantMsg);
+			}
+
 			const isSameModel =
 				assistantMsg.provider === model.provider &&
 				assistantMsg.api === model.api &&
@@ -126,11 +156,8 @@ export function transformMessages<TApi extends Api>(
 				existingToolResultIds = new Set();
 			}
 
-			// Skip errored/aborted assistant messages entirely.
-			// These are incomplete turns that shouldn't be replayed:
-			// - May have partial content (reasoning without message, incomplete tool calls)
-			// - Replaying them can cause API errors (e.g., OpenAI "reasoning without following item")
-			// - The model should retry from the last valid state
+			// Defensive fallback: interrupted assistant messages should already have been
+			// converted into replayable text-only assistant messages in the first pass.
 			const assistantMsg = msg as AssistantMessage;
 			if (assistantMsg.stopReason === "error" || assistantMsg.stopReason === "aborted") {
 				continue;

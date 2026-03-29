@@ -70,6 +70,28 @@ function createAgent() {
 	});
 }
 
+function createInterruptedAgent(partialText: string, errorMessage: string) {
+	return new Agent({
+		convertToLlm,
+		streamFn: (_model, _context, _options) => {
+			const stream = new MockAssistantStream();
+			queueMicrotask(() => {
+				stream.push({ type: "start", partial: createAssistantMessage("") });
+				stream.push({
+					type: "error",
+					reason: "error",
+					error: {
+						...createAssistantMessage(partialText),
+						stopReason: "error",
+						errorMessage,
+					},
+				});
+			});
+			return stream;
+		},
+	});
+}
+
 describe("SessionRuntime", () => {
 	it("persists agent events and restores session state on reopen", async () => {
 		const sessionDir = await createTempDir();
@@ -98,6 +120,45 @@ describe("SessionRuntime", () => {
 		expect(resumedAgent.state.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
 		expect(resumedAgent.state.thinkingLevel).toBe("low");
 		expect(resumedAgent.state.model.id).toBe("gpt-5-mini");
+	});
+
+	it("persists interrupted assistant output so later turns can continue from the visible partial text", async () => {
+		const sessionDir = await createTempDir();
+		const cwd = path.join(sessionDir, "project-error");
+		const agent = createInterruptedAgent("partial answer", "401 invalidated oauth token");
+		const runtime = await SessionRuntime.create({ agent, cwd, sessionDir });
+
+		await agent.prompt("trigger partial error");
+		await runtime.waitForSettled();
+
+		const messageEntries = runtime
+			.getSessionManager()
+			.getEntries()
+			.filter((entry) => entry.type === "message");
+		expect(messageEntries).toHaveLength(2);
+		const assistantEntry = messageEntries[1];
+		expect(assistantEntry?.type).toBe("message");
+		if (assistantEntry?.type !== "message") {
+			throw new Error("Expected assistant message entry");
+		}
+		expect(assistantEntry.message).toMatchObject({
+			role: "assistant",
+			stopReason: "error",
+			errorMessage: "401 invalidated oauth token",
+			content: [{ type: "text", text: "partial answer" }],
+		});
+
+		const filePath = runtime.getSessionManager().getSessionFile();
+		expect(filePath).toBeTruthy();
+		const resumedAgent = createAgent();
+		const resumed = await SessionRuntime.create({ agent: resumedAgent, sessionFile: filePath!, sessionDir });
+		expect(resumedAgent.state.messages.at(-1)).toMatchObject({
+			role: "assistant",
+			stopReason: "error",
+			errorMessage: "401 invalidated oauth token",
+			content: [{ type: "text", text: "partial answer" }],
+		});
+		await resumed.waitForSettled();
 	});
 
 	it("deletes sessions and falls back to the remaining recent session", async () => {

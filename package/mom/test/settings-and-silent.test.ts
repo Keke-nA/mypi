@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { isSilentResponseText } from "../src/agent.js";
+import { buildSystemPrompt, isSilentResponseText } from "../src/agent.js";
 import { applyMomWorkspaceSettings, loadMomWorkspaceSettings } from "../src/context.js";
 
 const tempDirs: string[] = [];
@@ -97,6 +97,25 @@ describe("mom workspace settings", () => {
     const workingDir = await createTempDir();
     await writeFile(path.join(workingDir, "settings.json"), "not-json", "utf8");
     await expect(loadMomWorkspaceSettings(workingDir)).resolves.toEqual({});
+  });
+});
+
+describe("mom system prompt", () => {
+  it("includes the synced coding-agent guidance and mom-specific runtime rules", () => {
+    const prompt = buildSystemPrompt(
+      "/workspace",
+      "/host/workspace",
+      "C123",
+      "## Workspace Memory\nRemember the deployment runbook.",
+      { type: "docker", container: "mom-sandbox" },
+      [],
+      "Prefer concise answers.",
+    );
+
+    expect(prompt).toContain("## Slack Formatting (mrkdwn, NOT Markdown)");
+    expect(prompt).toContain("Never use host paths like /host/workspace/... in tool calls.");
+    expect(prompt).toContain("## Workspace Settings Prompt Append");
+    expect(prompt).toContain("Prefer concise answers.");
   });
 });
 

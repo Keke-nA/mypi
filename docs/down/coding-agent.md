@@ -456,7 +456,20 @@ Git commit graph 的简化版会话树存储
 - 超过阈值（threshold）
 - 出现 context overflow 错误后重试（overflow + retry）
 
+注意，这里的自动恢复仍然只针对 overflow；`401/404` 之类普通 provider 错误不会自动重试，只会把已经产生的 assistant partial 按上面的规则保留进 session。
+
 然后 `SessionRuntime` 在 `agent_end` 后触发 compaction，并在需要时自动 `continue()` 重试。
+
+另外，普通错误场景下还有一个和用户体验很相关的细节：
+
+- `message_end` 时，assistant error message 也会照常写入 session/jsonl
+- 如果这条 error message 在中断前已经输出过部分正文，这部分正文会保留在 `assistant.content` 里
+- session 恢复后，这条消息仍然在分支上下文中
+- 真正再次发给模型时，`ai` 层会只重放其中已经可见的 `text`，不重放未完成的 `thinking/toolCall`
+
+所以像“输出到一半 401/连接断开，下一轮用户输入继续”这种场景，当前语义是：
+
+> session 会保留这条中断的 assistant；下一轮模型会看到它已经输出出来的正文部分，并从这个可见上下文继续。
 
 这是一套相当完整的“长会话自维护”机制。
 
@@ -502,6 +515,7 @@ Git commit graph 的简化版会话树存储
 
 支持的内容包括：
 
+- provider（当前支持 `openai` / `anthropic`）
 - API key
 - baseUrl
 - model
@@ -513,6 +527,15 @@ Git commit graph 的简化版会话树存储
 - `systemPromptAppend`
 - compaction settings
 - presets
+
+配置来源现在既支持传统的 `openai.*`，也支持 `anthropic.*`，并允许通过 `agent.provider` 明确选中当前 provider。
+
+环境变量也已经支持：
+
+- `OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL`
+- `ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL`
+
+一个很实用的变化是：如果当前 provider 已知，但 model id 不在内建 registry 里，`coding-agent` 不会直接报错，而是会按 provider 构造一个兼容模型继续运行。所以像 `kimi-k2.5` 这类 Anthropic-compatible 模型既可以做成内建模型，也可以在未注册时先按自定义模型跑起来。
 
 这让 `coding-agent` 已经不只是一个库，而是一个有完整产品配置入口的系统。
 
@@ -531,7 +554,15 @@ Git commit graph 的简化版会话树存储
 - 单 prompt 执行
 - plain 交互
 - session 命令
+- `--provider` 选择 provider
 - tree / fork / compact / model / thinking / name 等命令
+
+CLI 现在已经不是 OpenAI-only，而是 provider-aware：
+
+- 会按当前 provider 配置 `configureAI(...)`
+- `model` 解析会走通用 `resolveModel(...)`
+- 恢复历史 session 时会走 `resolvePersistedModel(...)`
+- model chooser 会保留当前自定义模型名，不会因为它不在默认列表里就丢失
 
 ### TUI 模式
 基于 `pi-tui` 提供：
@@ -542,6 +573,8 @@ Git commit graph 的简化版会话树存储
 - session selector overlay
 - session tree overlay
 - model / thinking 选择器
+
+TUI 的 model 选择器现在也已经 provider-aware，会优先显示当前 provider 的内建模型，同时保留当前 session 正在使用的模型名。
 
 所以 `coding-agent` 这层已经同时具备：
 

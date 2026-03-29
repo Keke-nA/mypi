@@ -19,6 +19,19 @@ describe("anthropic messages sdk", () => {
     });
   });
 
+  it("returns typed model metadata for built-in kimi anthropic-compatible models", () => {
+    const model = getModel("anthropic", "kimi-k2.5");
+
+    expect(model).toMatchObject({
+      id: "kimi-k2.5",
+      api: "anthropic-messages",
+      provider: "anthropic",
+      baseUrl: "https://api.kimi.com/coding/",
+      reasoning: true,
+      input: ["text"],
+    });
+  });
+
   it("completes a tool-using response through the messages api", async () => {
     configureAI({
       fetch: vi.fn(async (input: string | URL | Request, init?: RequestInit) => {

@@ -140,5 +140,22 @@ export const MODELS = {
       contextWindow: 1000000,
       maxTokens: 128000,
     } satisfies Model<"anthropic-messages">,
+    "kimi-k2.5": {
+      id: "kimi-k2.5",
+      name: "Kimi K2.5",
+      api: "anthropic-messages",
+      provider: "anthropic",
+      baseUrl: "https://api.kimi.com/coding/",
+      reasoning: true,
+      input: ["text"],
+      cost: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+      },
+      contextWindow: 200000,
+      maxTokens: 64000,
+    } satisfies Model<"anthropic-messages">,
   },
 } as const;
