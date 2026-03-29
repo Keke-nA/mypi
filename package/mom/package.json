@@ -1,0 +1,31 @@
+{
+  "name": "@mypi/mom",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "mom": "./dist/main.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@mypi/agent": "0.0.0",
+    "@mypi/ai": "0.0.0",
+    "@mypi/coding-agent": "0.0.0",
+    "@slack/socket-mode": "^2.0.0",
+    "@slack/web-api": "^7.11.0",
+    "croner": "^9.1.0"
+  },
+  "scripts": {
+    "build": "npm run build --workspace @mypi/coding-agent && tsc -p tsconfig.build.json",
+    "typecheck": "npm run build --workspace @mypi/coding-agent && tsc -p tsconfig.json --noEmit",
+    "test": "npm run build --workspace @mypi/coding-agent && vitest run --root ../.. package/mom/test",
+    "cli": "npm run build && node dist/main.js"
+  }
+}

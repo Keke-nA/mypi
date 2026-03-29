@@ -7,5 +7,9 @@ export function getEnvApiKey(provider: string): string | undefined {
     return process.env.OPENAI_API_KEY;
   }
 
+  if (provider === "anthropic") {
+    return process.env.ANTHROPIC_API_KEY;
+  }
+
   return undefined;
 }

@@ -1,0 +1,74 @@
+{
+    "date": "2026-03-28T20:47:23.232Z",
+    "ts": "1774730843.232919",
+    "user": "U0ANUHCME00",
+    "userName": "642812484gxy",
+    "displayName": "ON K",
+    "text": "helloya",
+    "attachments": [],
+    "isBot": false
+}
+{
+    "date": "2026-03-28T20:47:27.712Z",
+    "ts": "1774730845.444909",
+    "user": "bot",
+    "text": "Hello! How can I help?",
+    "attachments": [],
+    "isBot": true
+}
+{
+    "date": "2026-03-28T20:48:03.842Z",
+    "ts": "1774730883.842429",
+    "user": "U0ANUHCME00",
+    "userName": "642812484gxy",
+    "displayName": "ON K",
+    "text": "当前目录有什么？",
+    "attachments": [],
+    "isBot": false
+}
+{
+    "date": "2026-03-28T20:48:16.527Z",
+    "ts": "1774730890.468199",
+    "user": "bot",
+    "text": "当前目录是 `/home/gao-wsl/mypi/.mom-data`。\n\n里面有这些内容：\n- `C0AND6MG865/`\n- `C0APLU4HBL4/`\n- `D0AMY87N7LN/`\n- `events/`\n\n如果你想，我也可以继续帮你查看：\n- `C0APLU4HBL4` 目录里有什么\n- 当前频道的 `log.jsonl` / `context.jsonl`\n- 递归列出整个目录树",
+    "attachments": [],
+    "isBot": true
+}
+{
+    "date": "2026-03-28T20:48:03.842Z",
+    "ts": "1774730883.842429",
+    "user": "U0ANUHCME00",
+    "userName": "642812484gxy",
+    "displayName": "ON K",
+    "text": "当前目录有什么？",
+    "attachments": [],
+    "isBot": false
+}
+{
+    "date": "2026-03-28T20:49:14.350Z",
+    "ts": "1774730947.741719",
+    "user": "bot",
+    "text": "当前目录是 `/home/gao-wsl/mypi/.mom-data`，包含：\n\n- `C0AND6MG865/`\n- `C0APLU4HBL4/`\n- `D0AMY87N7LN/`\n- `events/`\n\n如果你要，我可以继续展开看某个子目录。",
+    "attachments": [],
+    "isBot": true
+}
+{"date":"2026-03-28T20:46:59.111Z","ts":"1774730819.111169","user":"bot","text":"已加入此频道","attachments":[],"isBot":true}
+{"date":"2026-03-28T20:47:23.232Z","ts":"1774730843.232919","user":"U0ANUHCME00","userName":"642812484gxy","displayName":"ON K","text":"helloya","attachments":[],"isBot":false}
+{"date":"2026-03-28T20:47:25.444Z","ts":"1774730845.444909","user":"bot","text":"Hello! How can I help?","attachments":[],"isBot":true}
+{"date":"2026-03-28T20:48:03.842Z","ts":"1774730883.842429","user":"U0ANUHCME00","userName":"642812484gxy","displayName":"ON K","text":"当前目录有什么？","attachments":[],"isBot":false}
+{"date":"2026-03-28T20:48:10.468Z","ts":"1774730890.468199","user":"bot","text":"当前目录是 `/home/gao-wsl/mypi/.mom-data`。\n\n里面有这些内容：\n- `C0AND6MG865/`\n- `C0APLU4HBL4/`\n- `D0AMY87N7LN/`\n- `events/`\n\n如果你想，我也可以继续帮你查看：\n- `C0APLU4HBL4` 目录里有什么\n- 当前频道的 `log.jsonl` / `context.jsonl`\n- 递归列出整个目录树","attachments":[],"isBot":true}
+{"date":"2026-03-28T20:49:07.741Z","ts":"1774730947.741719","user":"bot","text":"当前目录是 `/home/gao-wsl/mypi/.mom-data`，包含：\n\n- `C0AND6MG865/`\n- `C0APLU4HBL4/`\n- `D0AMY87N7LN/`\n- `events/`\n\n如果你要，我可以继续展开看某个子目录。","attachments":[],"isBot":true}
+{"date":"2026-03-28T20:58:26.681Z","ts":"1774731506.681159","user":"U0ANUHCME00","userName":"642812484gxy","displayName":"ON K","text":"这是测试二","attachments":[],"isBot":false}
+{"date":"2026-03-28T20:58:41.913Z","ts":"1774731519.612049","user":"bot","text":"收到，`helloya` 👋  \n我在这儿，有什么要我帮你做的？","attachments":[],"isBot":true}
+{"date":"2026-03-28T20:58:47.681Z","ts":"1774731522.113909","user":"bot","text":"当前目录是 `/home/gao-wsl/mypi/.mom-data`。\n\n包含这些项目：\n- `C0AND6MG865/`\n- `C0APLU4HBL4/`\n- `D0AMY87N7LN/`\n- `events/`\n\n要不要我顺便把 `C0APLU4HBL4/` 里面也列出来？","attachments":[],"isBot":true}
+{"date":"2026-03-28T20:58:52.908Z","ts":"1774731527.996119","user":"bot","text":"收到，这是“测试二”。","attachments":[],"isBot":true}
+{"date":"2026-03-28T20:59:30.979Z","ts":"1774731570.979699","user":"U0ANUHCME00","userName":"642812484gxy","displayName":"ON K","text":"测试通过？","attachments":[],"isBot":false}
+{"date":"2026-03-28T20:59:35.585Z","ts":"1774731573.381849","user":"bot","text":"看起来通过了，我这边能正常收到并回复你的消息。","attachments":[],"isBot":true}
+{"date":"2026-03-28T21:13:11.683Z","ts":"1774732391.683679","user":"U0ANUHCME00","userName":"642812484gxy","displayName":"ON K","text":"你好呀，能帮我上网查查现在杭州什么天气吗？","attachments":[],"isBot":false}
+{"date":"2026-03-28T21:13:16.822Z","ts":"1774732396.822159","user":"U0ANUHCME00","userName":"642812484gxy","displayName":"ON K","text":"你是谁？","attachments":[],"isBot":false}
+{"date":"2026-03-28T21:14:08.646Z","ts":"1774732442.487759","user":"bot","text":"可以，不过我当前没有联网天气接口可直接查询实时天气。\n\n我可以给你两种方式：\n1. 我帮你查看这台环境里是否有可用的命令行天气工具\n2. 你直接告诉我想查“今天 / 未来几天 / 是否下雨 / 温度范围”，我给你一个最快查询方案\n\n如果你愿意，我也可以先尝试用命令行方式帮你查一下杭州天气。","attachments":[],"isBot":true}
+{"date":"2026-03-28T21:14:11.637Z","ts":"1774732448.892909","user":"bot","text":"我是你的命令行/代码助手，运行在这个工作区里。  \n我可以帮你查看目录、读写文件、运行命令、排查问题，也能处理一些日常查询。","attachments":[],"isBot":true}
+{"date":"2026-03-28T21:14:05.187Z","ts":"1774732445.187279","user":"U0ANUHCME00","userName":"642812484gxy","displayName":"ON K","text":"好难受","attachments":[],"isBot":false}
+{"date":"2026-03-28T21:14:21.452Z","ts":"1774732452.916709","user":"bot","text":"抱抱你。听起来你现在很难受。\n\n如果你愿意，可以只回我一句：\n- 是身体不舒服\n- 还是心里很难受\n- 或者两者都有\n\n如果是现在就很顶不住，也先做这三件小事：\n1. 喝几口温水\n2. 找个能坐稳或躺下的地方，慢慢呼吸 10 次\n3. 如果身边有人，告诉对方一句“我现在状态不太好，想让你陪我一下”\n\n如果你愿意，我可以继续陪你：\n- 帮你判断是身体症状还是情绪问题\n- 陪你慢慢说\n- 或者直接给你一个“现在先撑过 10 分钟”的办法\n\n如果你有伤害自己、撑不住、胸痛呼吸困难、或明显危险的感觉，请立刻联系身边的人和当地急救。  \n你也可以现在直接跟我说一句：**“是身体难受”** 或 **“是心里难受”**。","attachments":[],"isBot":true}
+{"date":"2026-03-28T21:24:31.943Z","ts":"1774733071.943499","user":"U0ANUHCME00","userName":"642812484gxy","displayName":"ON K","text":"现在杭州什么天气。","attachments":[],"isBot":false}
+{"date":"2026-03-28T21:24:48.077Z","ts":"1774733075.375049","user":"bot","text":"现在杭州天气：**晴，17°C**。","attachments":[],"isBot":true}

@@ -17,7 +17,10 @@ import {
 	formatLoadedConfig,
 	loadAgentConfig,
 	messageToText,
-	resolveOpenAIModel,
+	getDefaultModelId,
+	getModelChoices,
+	inferProviderFromModelId,
+	resolveModel,
 	resolvePersistedModel,
 	showSessionSelectorOverlay,
 	type LoadedAgentConfig,
@@ -28,6 +31,7 @@ import {
 } from "../index.js";
 
 interface CliOptions {
+	provider: string;
 	apiKey: string;
 	baseUrl?: string;
 	modelId: string;
@@ -62,8 +66,9 @@ function usage(): string {
 		"  mypi [options]",
 		"",
 		"Options:",
-		"  --api-key <key>         OpenAI-compatible API key",
-		"  --base-url <url>        OpenAI-compatible base URL",
+		"  --provider <name>       Provider name (openai|anthropic)",
+		"  --api-key <key>         Provider API key",
+		"  --base-url <url>        Provider-compatible base URL",
 		"  --model <id>            Model id",
 		"  --thinking <level>      off|minimal|low|medium|high|xhigh",
 		"  --preset <name>         Activate a preset from presets.json",
@@ -157,8 +162,9 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 	});
 
 	const options: CliOptions = {
+		provider: loadedConfig.settings.provider,
 		apiKey: loadedConfig.settings.apiKey ?? "",
-		modelId: loadedConfig.settings.modelId ?? "gpt-5.4",
+		modelId: loadedConfig.settings.modelId,
 		thinkingLevel: loadedConfig.settings.thinkingLevel ?? "off",
 		cwd: bootstrap.cwd,
 		continueRecent: loadedConfig.settings.continueRecent === true,
@@ -180,6 +186,8 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 		options.systemPromptAppend = loadedConfig.settings.systemPromptAppend;
 	}
 
+	let sawProviderFlag = false;
+	let sawModelFlag = false;
 	let sawResumeSelectorFlag = false;
 	let sawResumeLatestFlag = false;
 	let sawSessionFileFlag = false;
@@ -195,6 +203,11 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 			return value;
 		};
 
+		if (arg === "--provider") {
+			sawProviderFlag = true;
+			options.provider = next();
+			continue;
+		}
 		if (arg === "--api-key") {
 			options.apiKey = next();
 			continue;
@@ -204,6 +217,7 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 			continue;
 		}
 		if (arg === "--model") {
+			sawModelFlag = true;
 			options.modelId = next();
 			continue;
 		}
@@ -293,8 +307,15 @@ async function parseArgs(argv: string[]): Promise<CliOptions | { help: true }> {
 	if ((sawResumeSelectorFlag || sawResumeLatestFlag || sawSessionFileFlag) && options.inMemory) {
 		throw new Error("Resume options cannot be combined with --in-memory.");
 	}
+	if (sawProviderFlag && !sawModelFlag) {
+		const modelProvider = inferProviderFromModelId(options.modelId);
+		if (modelProvider && modelProvider !== options.provider) {
+			options.modelId = getDefaultModelId(options.provider);
+		}
+	}
+
 	if (!options.apiKey && !options.printConfig) {
-		throw new Error("Missing API key. Pass --api-key, set OPENAI_API_KEY, or configure ~/.mypi/agent/config.json.");
+		throw new Error(`Missing API key for provider ${options.provider}. Pass --api-key, set provider env vars, or configure ~/.mypi/agent/config.json.`);
 	}
 
 	return options;
@@ -326,6 +347,7 @@ function formatEffectiveConfig(options: CliOptions): string {
 		`cwd: ${options.cwd}`,
 		`startupMode: ${formatStartupMode(options)}`,
 		`sessionFile: ${options.sessionFile ?? "(none)"}`,
+		`provider: ${options.provider}`,
 		`model: ${options.modelId}`,
 		`baseUrl: ${options.baseUrl ?? "(default)"}`,
 		`thinkingLevel: ${options.thinkingLevel}`,
@@ -619,24 +641,38 @@ async function resolveStartupSessionFile(options: CliOptions): Promise<string | 
 	return shouldUseTui(options) ? selectStartupSessionPathTui(options) : selectStartupSessionPathPlain(options);
 }
 
-async function createSession(options: CliOptions): Promise<AgentSession> {
-	configureAI({
+function buildAIProviderConfig(options: CliOptions) {
+	if (options.provider === "anthropic") {
+		return {
+			providers: {
+				anthropic: {
+					apiKey: options.apiKey,
+					...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
+				},
+			},
+		};
+	}
+	return {
 		providers: {
 			openai: {
 				apiKey: options.apiKey,
 				...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
 			},
 		},
-	});
+	};
+}
 
-	const model = resolveOpenAIModel(options.modelId, options.baseUrl);
+async function createSession(options: CliOptions): Promise<AgentSession> {
+	configureAI(buildAIProviderConfig(options));
+
+	const model = resolveModel(options.provider, options.modelId, options.baseUrl);
 	const agent = new Agent({
 		initialState: {
 			model,
 			thinkingLevel: options.thinkingLevel,
 		},
 		convertToLlm,
-		getApiKey: async () => options.apiKey,
+		getApiKey: async (provider) => (provider === options.provider ? options.apiKey : undefined),
 	});
 	agent.setSystemPrompt(buildSystemPrompt(options.cwd, options.systemPromptAppend));
 	agent.setTools(createWorkspaceTools(options.cwd, options.activeTools));
@@ -648,7 +684,11 @@ async function createSession(options: CliOptions): Promise<AgentSession> {
 		...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
 		continueRecent: options.continueRecent,
 		inMemory: options.inMemory,
-		resolveModel: (modelRef) => resolvePersistedModel(modelRef, options.baseUrl),
+		resolveModel: (modelRef) =>
+			resolvePersistedModel(modelRef, {
+				provider: options.provider,
+				...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
+			}),
 		autoCompaction: {
 			settings: options.compaction,
 			createSummaryGenerator: (currentModel) => createCompactionSummaryGenerator(currentModel as Model<any>),
@@ -769,7 +809,7 @@ async function handleCommand(
 				stdout.write(`${session.agent.state.model.provider}/${session.agent.state.model.id}\n`);
 				return true;
 			}
-			await session.setModel(resolveOpenAIModel(rest[0]!, options.baseUrl));
+			await session.setModel(resolveModel(options.provider, rest[0]!, options.baseUrl));
 			stdout.write(`model -> ${session.agent.state.model.provider}/${session.agent.state.model.id}\n`);
 			return true;
 		}
@@ -870,10 +910,11 @@ async function main() {
 		if (shouldUseTui(options)) {
 			const app = new InteractiveApp(session, {
 				cwd: options.cwd,
+				provider: options.provider,
 				...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
 				...(options.sessionDir === undefined ? {} : { sessionDir: options.sessionDir }),
 				...(options.inMemory ? { inMemory: true } : {}),
-				modelChoices: ["gpt-4o-mini", "gpt-5-mini", "gpt-5.4"],
+				modelChoices: Array.from(new Set([options.modelId, ...getModelChoices(options.provider)])),
 				configSummary: formatEffectiveConfig(options),
 				...(options.loadedConfig.activePreset?.name === undefined ? {} : { activePresetName: options.loadedConfig.activePreset.name }),
 				warnings: options.loadedConfig.warnings,

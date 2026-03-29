@@ -2,9 +2,9 @@
 
 ## 1. 当前定位
 
-当前 `package/ai` 已经收敛成一条 **OpenAI official only** 的主线实现。
+当前 `package/ai` 已经从 **OpenAI official only** 的单主线，扩展到 **OpenAI Responses + Anthropic Messages** 两条官方主线实现。
 
-目标不是“统一多 provider”，而是先把下面这套协议和运行时骨架定稳：
+目标仍然不是做复杂路由，而是先把下面这套统一协议和运行时骨架定稳：
 
 - `getModel(provider, modelId)`
 - `stream(model, context, options)`
@@ -38,7 +38,7 @@
 辅助实现分两层：
 
 - `providers/`
-  只保留 OpenAI Responses 主线
+  当前内建 OpenAI Responses 与 Anthropic Messages
 - `utils/`
   事件流、partial JSON、校验、TypeBox helper 等通用能力
 
@@ -74,7 +74,7 @@
 - [models.generated.ts](/home/gao-wsl/mypi/package/ai/src/models.generated.ts)
 - [models.ts](/home/gao-wsl/mypi/package/ai/src/models.ts)
 
-当前只内置 OpenAI official 模型元数据，并暴露：
+当前内置 OpenAI 与 Anthropic 的官方模型元数据，并暴露：
 
 - `getModel()`
 - `getModels()`
@@ -91,23 +91,28 @@ provider 注册表在：
 
 - [providers/register-builtins.ts](/home/gao-wsl/mypi/package/ai/src/providers/register-builtins.ts)
 
-当前只注册：
+当前注册：
 
 - `openai-responses`
+- `anthropic-messages`
 
-### 4.3 OpenAI 路径
+### 4.3 OpenAI / Anthropic 路径
 
 OpenAI Responses provider 主要在：
 
 - [providers/openai-responses.ts](/home/gao-wsl/mypi/package/ai/src/providers/openai-responses.ts)
 - [providers/openai-responses-shared.ts](/home/gao-wsl/mypi/package/ai/src/providers/openai-responses-shared.ts)
 
-它负责：
+Anthropic Messages provider 主要在：
+
+- [providers/anthropic.ts](/home/gao-wsl/mypi/package/ai/src/providers/anthropic.ts)
+
+它们共同负责：
 
 - 认证与 fetch/runtime 配置读取
-- Context -> OpenAI Responses payload
-- Tool schema -> OpenAI tool schema
-- SSE/SDK stream -> `AssistantMessageEvent`
+- Context -> provider payload
+- Tool schema -> provider tool schema
+- SDK stream -> `AssistantMessageEvent`
 - usage / stopReason / cost 归一化
 
 ### 4.4 配置
@@ -126,6 +131,9 @@ OpenAI Responses provider 主要在：
 - `providers.openai.apiKey`
 - `providers.openai.baseUrl`
 - `providers.openai.defaultHeaders`
+- `providers.anthropic.apiKey`
+- `providers.anthropic.baseUrl`
+- `providers.anthropic.defaultHeaders`
 - `fetch`
 - `env`
 
@@ -185,7 +193,7 @@ tool 参数的 partial JSON 解析在：
 
 当前明确未做或未完成：
 
-- 多 provider
+- 更复杂的多 provider 路由策略
 - cross-provider handoff
 - 浏览器/OAuth/CLI 相关能力
 - 更完整的模型注册表
@@ -195,9 +203,10 @@ tool 参数的 partial JSON 解析在：
 
 ## 8. 测试
 
-当前 `package/ai/test` 只保留新主线测试：
+当前 `package/ai/test` 的新主线测试包括：
 
 - [sdk.test.ts](/home/gao-wsl/mypi/package/ai/test/sdk.test.ts)
+- [anthropic-sdk.test.ts](/home/gao-wsl/mypi/package/ai/test/anthropic-sdk.test.ts)
 
 覆盖内容：
 
@@ -218,11 +227,11 @@ npm test --workspace @mypi/ai
 现在的 `package/ai` 已经不再是“旧低层栈 + 新高层栈并存”的状态，而是：
 
 ```text
-一套 OpenAI-only、pi 风格、协议优先的 AI 层骨架
+一套支持 OpenAI / Anthropic、pi 风格、协议优先的 AI 层骨架
 ```
 
 如果下一步继续做，最合理的方向不是再扩散文件，而是：
 
 1. 把不变量测试补完整
-2. 再决定是否扩多 provider
-3. 如果扩 provider，也继续沿这套骨架加，不再回到旧的双轨结构
+2. 在现有 OpenAI / Anthropic 骨架上继续补 provider 行为一致性
+3. 如果继续扩 provider，也沿这套骨架加，不再回到旧的双轨结构

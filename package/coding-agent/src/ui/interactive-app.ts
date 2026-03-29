@@ -4,7 +4,7 @@ import type { AgentEvent } from "@mypi/agent";
 import type { AgentSession } from "../core/agent-session.js";
 import { createBranchSummaryGenerator, createCompactionSummaryGenerator } from "../core/summary-generators.js";
 import { messageToText } from "../core/messages.js";
-import { resolveOpenAIModel } from "../core/model-utils.js";
+import { getModelChoices, resolveModel } from "../core/model-utils.js";
 import type { SessionEntry, SessionThinkingLevel } from "../core/session-types.js";
 import { showSelectOverlay } from "./select-overlay.js";
 import { showSessionSelectorOverlay } from "./session-selector-overlay.js";
@@ -13,6 +13,7 @@ import { mypiEditorTheme, mypiSelectListTheme, uiColors } from "./theme.js";
 
 export interface InteractiveAppOptions {
 	cwd: string;
+	provider: string;
 	baseUrl?: string;
 	sessionDir?: string;
 	inMemory?: boolean;
@@ -263,11 +264,11 @@ export class InteractiveApp {
 				if (rest.length === 0) {
 					const selected = await this.selectModel();
 					if (selected) {
-						await this.session.setModel(resolveOpenAIModel(selected, this.options.baseUrl));
+						await this.session.setModel(resolveModel(this.options.provider, selected, this.options.baseUrl));
 						this.pushNotice("info", `model -> ${selected}`);
 					}
 				} else {
-					await this.session.setModel(resolveOpenAIModel(rest[0]!, this.options.baseUrl));
+					await this.session.setModel(resolveModel(this.options.provider, rest[0]!, this.options.baseUrl));
 					this.pushNotice("info", `model -> ${rest[0]}`);
 				}
 				this.refresh();
@@ -377,7 +378,8 @@ export class InteractiveApp {
 	}
 
 	private async selectModel(): Promise<string | null> {
-		const items = (this.options.modelChoices ?? ["gpt-4o-mini", "gpt-5-mini", "gpt-5.4"]).map((model) => ({
+		const availableModels = this.options.modelChoices ?? Array.from(new Set([this.session.agent.state.model.id, ...getModelChoices(this.options.provider)]));
+		const items = availableModels.map((model) => ({
 			value: model,
 			label: model,
 			...(model === this.session.agent.state.model.id ? { description: "current" } : {}),
@@ -484,7 +486,7 @@ export class InteractiveApp {
 		const contextPart = this.options.showContextUsage === false ? undefined : `${uiColors.accent("ctx")} ${this.formatContextUsage(this.session.getContextUsage())}`;
 		return [
 			`${uiColors.accent("session")} ${state.session.sessionName ?? state.session.sessionId}`,
-			[presetPart, `${uiColors.accent("model")} ${state.agent.model.id}`, `${uiColors.accent("thinking")} ${state.agent.thinkingLevel}`, `${uiColors.accent("leaf")} ${state.session.leafId ? state.session.leafId.slice(0, 8) : "root"}`].filter(Boolean).join("   "),
+			[presetPart, `${uiColors.accent("model")} ${state.agent.model.provider}/${state.agent.model.id}`, `${uiColors.accent("thinking")} ${state.agent.thinkingLevel}`, `${uiColors.accent("leaf")} ${state.session.leafId ? state.session.leafId.slice(0, 8) : "root"}`].filter(Boolean).join("   "),
 			[`${uiColors.accent("streaming")} ${state.agent.isStreaming ? "yes" : "no"}`, `${uiColors.accent("pending tools")} ${pendingTools}`, contextPart].filter(Boolean).join("   "),
 		].join("\n");
 	}

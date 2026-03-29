@@ -1,6 +1,13 @@
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
+const DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com";
 
 export interface OpenAIConfig {
+  apiKey?: string;
+  baseUrl?: string;
+  defaultHeaders?: Record<string, string>;
+}
+
+export interface AnthropicConfig {
   apiKey?: string;
   baseUrl?: string;
   defaultHeaders?: Record<string, string>;
@@ -11,10 +18,18 @@ export interface AIConfig {
   fetch?: typeof fetch;
   providers?: {
     openai?: OpenAIConfig;
+    anthropic?: AnthropicConfig;
   };
 }
 
 export interface ResolvedOpenAIConfig {
+  apiKey: string;
+  baseUrl: string;
+  defaultHeaders: Record<string, string>;
+  fetch: typeof fetch;
+}
+
+export interface ResolvedAnthropicConfig {
   apiKey: string;
   baseUrl: string;
   defaultHeaders: Record<string, string>;
@@ -61,6 +76,25 @@ export function resolveOpenAIConfig(
   return {
     apiKey,
     baseUrl: normalizeBaseUrl(providerConfig?.baseUrl ?? env.OPENAI_BASE_URL ?? DEFAULT_OPENAI_BASE_URL),
+    defaultHeaders: providerConfig?.defaultHeaders ?? {},
+    fetch: ensureFetch(config),
+  };
+}
+
+export function resolveAnthropicConfig(
+  config: AIConfig,
+  providerConfig: AnthropicConfig | undefined = config.providers?.anthropic,
+): ResolvedAnthropicConfig {
+  const env = resolveEnv(config);
+  const apiKey = providerConfig?.apiKey ?? env.ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("Anthropic API key is missing. Set ANTHROPIC_API_KEY or pass providers.anthropic.apiKey.");
+  }
+
+  return {
+    apiKey,
+    baseUrl: normalizeBaseUrl(providerConfig?.baseUrl ?? env.ANTHROPIC_BASE_URL ?? DEFAULT_ANTHROPIC_BASE_URL),
     defaultHeaders: providerConfig?.defaultHeaders ?? {},
     fetch: ensureFetch(config),
   };

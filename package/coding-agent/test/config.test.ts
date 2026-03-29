@@ -57,6 +57,7 @@ describe("agent config", () => {
 		);
 
 		const loaded = await loadAgentConfig({ cwd, homeDir, env: {} });
+		expect(loaded.settings.provider).toBe("openai");
 		expect(loaded.settings.apiKey).toBe("global-key");
 		expect(loaded.settings.baseUrl).toBe("https://global.example/v1");
 		expect(loaded.settings.modelId).toBe("gpt-4o-mini");
@@ -110,6 +111,7 @@ describe("agent config", () => {
 			},
 		});
 
+		expect(loaded.settings.provider).toBe("openai");
 		expect(loaded.settings.apiKey).toBe("env-key");
 		expect(loaded.settings.modelId).toBe("gpt-5.4");
 		expect(loaded.settings.baseUrl).toBe("https://explicit.example/v1");
@@ -122,5 +124,25 @@ describe("agent config", () => {
 		expect(loaded.settings.compaction.retryOnOverflow).toBe(false);
 		expect(loaded.settings.compaction.showUsageInUi).toBe(false);
 		expect(formatLoadedConfig(loaded)).toContain("activePreset: fast");
+	});
+
+	it("supports anthropic env inference and custom compatible model ids", async () => {
+		const homeDir = await createTempDir("mypi-home-");
+		const cwd = await createTempDir("mypi-project-");
+		const loaded = await loadAgentConfig({
+			cwd,
+			homeDir,
+			env: {
+				ANTHROPIC_API_KEY: "anthropic-key",
+				ANTHROPIC_BASE_URL: "https://api.kimi.com/coding/",
+				ANTHROPIC_MODEL: "kimi-k2.5",
+			},
+		});
+
+		expect(loaded.settings.provider).toBe("anthropic");
+		expect(loaded.settings.apiKey).toBe("anthropic-key");
+		expect(loaded.settings.baseUrl).toBe("https://api.kimi.com/coding/");
+		expect(loaded.settings.modelId).toBe("kimi-k2.5");
+		expect(loaded.warnings).toEqual([]);
 	});
 });

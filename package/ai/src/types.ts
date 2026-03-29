@@ -4,10 +4,10 @@ import type { AssistantMessageEventStream } from "./utils/event-stream.js";
 
 export type { AssistantMessageEventStream } from "./utils/event-stream.js";
 
-export type KnownApi = "openai-responses";
+export type KnownApi = "openai-responses" | "anthropic-messages";
 export type Api = KnownApi | (string & {});
 
-export type KnownProvider = "openai";
+export type KnownProvider = "openai" | "anthropic";
 export type Provider = KnownProvider | string;
 
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
